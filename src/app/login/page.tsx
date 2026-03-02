@@ -2,152 +2,181 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { login } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import { Package, Eye, EyeOff } from "lucide-react";
+import "./login.css";
+
+const loginSchema = z.object({
+    email: z.string().email("Please enter a valid email address"),
+    password: z.string().min(1, "Password is required"),
+    rememberMe: z.boolean().optional(),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
     const router = useRouter();
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const {
+        register,
+        handleSubmit,
+        setError,
+        formState: { errors },
+    } = useForm<LoginFormValues>({
+        resolver: zodResolver(loginSchema),
+        defaultValues: {
+            email: "",
+            password: "",
+            rememberMe: false,
+        },
+    });
+
+    const onSubmit = async (data: LoginFormValues) => {
         setIsLoading(true);
 
-        // Simulate a brief loading state for UX
-        await new Promise((resolve) => setTimeout(resolve, 600));
+        try {
+            await login(data.email, data.password);
 
-        login(username, password);
-        router.push("/");
+            if (data.rememberMe) {
+                // In a real app, this might set a persistent cookie or local storage token
+                localStorage.setItem("pwx_remember_me", "true");
+            }
+
+            router.push("/");
+        } catch (error: any) {
+            setError("root", {
+                type: "manual",
+                message: error.message || "An unexpected error occurred during login.",
+            });
+            setIsLoading(false);
+        }
     };
 
     return (
-        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-neutral-950 via-neutral-900 to-neutral-800">
-            {/* Animated background orbs */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <div className="absolute -left-20 -top-20 h-72 w-72 animate-pulse rounded-full bg-blue-500/10 blur-3xl" />
-                <div className="absolute -bottom-20 -right-20 h-96 w-96 animate-pulse rounded-full bg-purple-500/10 blur-3xl delay-700" />
-                <div className="absolute left-1/2 top-1/3 h-64 w-64 animate-pulse rounded-full bg-cyan-500/5 blur-3xl delay-1000" />
+        <div className="flex min-h-screen w-full font-display login-theme overflow-hidden">
+            <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-primary/10">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/80 to-primary/40 opacity-90 z-10"></div>
+                <div className="absolute inset-0 z-0 bg-cover bg-center" style={{ backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuAYupUCNGKaEB2y7oNyI-Vx_jSpbk6ZrIM2zndWYcI-Ys72LAiggd-4M2Ekc62hLXmaHRuYFShuI5-EZpkV92dLMRaMkqFi_03mmZ9XpBigvwHzsxzhewEp9R_0JDZ_xp397AjgO87LTX0Zz6RrbXW8jrbmjJ6dvNYhu64fB2KvNVgDlElTi_0iRTvMAzSo3mmH97UYtRmDksFA8FRI6WoOMRm0R0-A5FAJRaNiZpjn8UC6BMz5aemY7rQZYOwt8JGbYShiFN9luRE')" }}></div>
+                <div className="relative z-20 flex flex-col justify-between p-16 w-full text-white">
+                    <div className="flex items-center gap-3 animate-fade-in-up delay-100">
+                        <div className="size-10 bg-white/20 backdrop-blur-md rounded-lg flex items-center justify-center">
+                            <span className="material-symbols-outlined text-white text-3xl">flare</span>
+                        </div>
+                        <h2 className="text-2xl font-bold tracking-tight">Packetworx Inc.</h2>
+                    </div>
+                    <div className="max-w-md animate-fade-in-up delay-200">
+                        <h1 className="text-5xl font-extrabold leading-tight mb-6">WE CONNECT THINGS</h1>
+                        <p className="text-lg text-white/80 font-medium">Leverage the power of Internet of Things with LORAWAN® connectivity and devices.</p>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-white/60 animate-fade-in-up delay-300">
+                        <p>© 2026 Packetworx Inc. Technology Hub</p>
+                        <span className="size-1 bg-white/40 rounded-full"></span>
+                        <p>Terms of Service</p>
+                    </div>
+                </div>
             </div>
 
-            {/* Grid pattern overlay */}
-            <div
-                className="pointer-events-none absolute inset-0 opacity-[0.03]"
-                style={{
-                    backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-                    backgroundSize: "60px 60px",
-                }}
-            />
-
-            <Card className="relative z-10 w-full max-w-md border-white/10 bg-neutral-900/80 shadow-2xl backdrop-blur-xl">
-                <CardHeader className="space-y-4 text-center">
-                    {/* Logo */}
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-400 shadow-lg shadow-blue-500/25">
-                        <Package className="h-7 w-7 text-white" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-2xl font-bold tracking-tight text-white">
-                            PWX Inventory
-                        </CardTitle>
-                        <CardDescription className="mt-1 text-neutral-400">
-                            Sign in to access your inventory dashboard
-                        </CardDescription>
-                    </div>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="username" className="text-neutral-300">
-                                Username
-                            </Label>
-                            <Input
-                                id="username"
-                                type="text"
-                                placeholder="Enter your username"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                required
-                                className="border-white/10 bg-white/5 text-white placeholder:text-neutral-500 focus-visible:ring-blue-500/50"
-                            />
+            <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 md:p-16 lg:p-24" style={{ backgroundColor: '#f8f7f6' }}>
+                <div className="w-full max-w-md">
+                    <div className="lg:hidden flex items-center gap-3 mb-12 animate-fade-in-up delay-100">
+                        <div className="size-10 bg-primary rounded-lg flex items-center justify-center">
+                            <span className="material-symbols-outlined text-white text-2xl">flare</span>
                         </div>
+                        <h2 className="text-xl font-bold text-slate-900">Packetworx</h2>
+                    </div>
+
+                    <div className="space-y-4 mb-10 animate-fade-in-up delay-100">
+                        <h1 className="text-4xl font-black text-slate-900 tracking-tight">Welcome Back</h1>
+                        <p className="text-slate-500 text-lg">Please enter your credentials to access your account.</p>
+                    </div>
+
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-fade-in-up delay-200">
+                        {errors.root && (
+                            <div className="p-3 rounded-xl bg-red-100 text-red-600 text-sm font-medium border border-red-200 text-center animate-fade-in-up">
+                                {errors.root.message}
+                            </div>
+                        )}
+
                         <div className="space-y-2">
-                            <Label htmlFor="password" className="text-neutral-300">
-                                Password
-                            </Label>
-                            <div className="relative">
-                                <Input
+                            <label className="text-sm font-bold text-slate-700 ml-1" htmlFor="email">Email address</label>
+                            <div className="relative group">
+                                <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors ${errors.email ? 'text-red-400' : 'text-slate-400 group-focus-within:text-primary'}`}>
+                                    <span className="material-symbols-outlined text-xl">mail</span>
+                                </div>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    placeholder="name@company.com"
+                                    {...register("email")}
+                                    autoComplete="username"
+                                    className={`w-full pl-11 pr-4 py-4 bg-slate-50 border rounded-xl focus:ring-2 outline-none transition-all text-slate-900 placeholder:text-slate-400 ${errors.email ? 'border-red-400 focus:ring-red-200 focus:border-red-500' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
+                                />
+                            </div>
+                            {errors.email && (
+                                <p className="text-red-500 text-xs font-medium ml-1 mt-1">{errors.email.message}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center ml-1">
+                                <label className="text-sm font-bold text-slate-700" htmlFor="password">Password</label>
+                                <a className="text-sm font-bold text-primary hover:text-primary/80 transition-colors" href="#">Forgot password?</a>
+                            </div>
+                            <div className="relative group">
+                                <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors ${errors.password ? 'text-red-400' : 'text-slate-400 group-focus-within:text-primary'}`}>
+                                    <span className="material-symbols-outlined text-xl">lock</span>
+                                </div>
+                                <input
                                     id="password"
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="Enter your password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    className="border-white/10 bg-white/5 pr-10 text-white placeholder:text-neutral-500 focus-visible:ring-blue-500/50"
+                                    placeholder="••••••••"
+                                    {...register("password")}
+                                    autoComplete="current-password"
+                                    className={`w-full pl-11 pr-12 py-4 bg-slate-50 border rounded-xl focus:ring-2 outline-none transition-all text-slate-900 placeholder:text-slate-400 ${errors.password ? 'border-red-400 focus:ring-red-200 focus:border-red-500' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 transition-colors hover:text-neutral-300"
+                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
                                 >
-                                    {showPassword ? (
-                                        <EyeOff className="h-4 w-4" />
-                                    ) : (
-                                        <Eye className="h-4 w-4" />
-                                    )}
+                                    <span className="material-symbols-outlined text-xl">{showPassword ? "visibility_off" : "visibility"}</span>
                                 </button>
                             </div>
+                            {errors.password && (
+                                <p className="text-red-500 text-xs font-medium ml-1 mt-1">{errors.password.message}</p>
+                            )}
                         </div>
-                        <Button
+
+                        <div className="flex items-center gap-3 py-2">
+                            <input
+                                id="rememberMe"
+                                type="checkbox"
+                                {...register("rememberMe")}
+                                className="size-5 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                            />
+                            <label className="text-sm font-medium text-slate-600 cursor-pointer" htmlFor="rememberMe">Keep me logged in</label>
+                        </div>
+
+                        <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 font-medium text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-500 hover:to-cyan-400 hover:shadow-blue-500/40 disabled:opacity-70"
+                            className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:active:scale-100 disabled:cursor-not-allowed"
                         >
+                            <span>{isLoading ? "Signing In…" : "Sign In"}</span>
                             {isLoading ? (
-                                <span className="flex items-center gap-2">
-                                    <svg
-                                        className="h-4 w-4 animate-spin"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                    >
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="4"
-                                        />
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                                        />
-                                    </svg>
-                                    Signing in…
-                                </span>
+                                <span className="login-spinner"></span>
                             ) : (
-                                "Sign In"
+                                <span className="material-symbols-outlined text-xl">arrow_forward</span>
                             )}
-                        </Button>
+                        </button>
                     </form>
-                    <p className="mt-6 text-center text-xs text-neutral-500">
-                        Enter any credentials to access the dashboard
-                    </p>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     );
 }

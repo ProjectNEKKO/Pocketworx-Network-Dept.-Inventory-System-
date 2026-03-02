@@ -1,6 +1,14 @@
 const AUTH_KEY = "pwx_authenticated";
 
-export function login(_username: string, _password: string): boolean {
+export async function login(email: string, password: string): Promise<boolean> {
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // Simulate basic backend validation
+    if (password === "wrong") {
+        throw new Error("Invalid email or password");
+    }
+
     if (typeof window !== "undefined") {
         localStorage.setItem(AUTH_KEY, "true");
     }
