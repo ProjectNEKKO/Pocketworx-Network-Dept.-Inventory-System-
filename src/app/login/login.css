@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+@theme inline {
+    --color-primary: #ec7f13;
+    --color-background-light: #f8f7f6;
+    --color-background-dark: #120e09;
+    /* Deep brown/black replacing solid pitch black */
+    --font-display: var(--font-manrope), "Manrope", sans-serif;
+}
+
+/* Local overrides to bypass global Shadcn variable colors specifically for the standalone login page */
+.login-theme {
+    /* Primary brand orange */
+    --primary: #ec7f13;
+    /* Soft light background for day mode */
+    --background: #f8f7f6;
+}
+
+.dark .login-theme,
+.login-theme.dark {
+    /* Primary orange stays consistent */
+    --primary: #ec7f13;
+    /* Deep premium dark brown-black replacing the solid void */
+    --background: #120e09;
+}
+
+/* ---------- Animations & States ---------- */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in-up {
+    opacity: 0;
+    animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.delay-100 {
+    animation-delay: 100ms;
+}
+
+.delay-200 {
+    animation-delay: 200ms;
+}
+
+.delay-300 {
+    animation-delay: 300ms;
+}
+
+.delay-400 {
+    animation-delay: 400ms;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.login-spinner {
+    width: clamp(16px, 1.39vw, 20px);
+    height: clamp(16px, 1.39vw, 20px);
+    border: 2.5px solid rgba(255, 255, 255, 0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+}
