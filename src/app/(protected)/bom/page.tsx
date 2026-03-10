@@ -24,10 +24,10 @@ export default function BOMPage() {
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white">
+                    <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
                         Bill of Materials
                     </h1>
-                    <p className="mt-1 text-neutral-400">
+                    <p className="mt-1 text-neutral-500">
                         Manage product BOMs and component requirements
                     </p>
                 </div>
@@ -43,19 +43,19 @@ export default function BOMPage() {
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                     <Input
                         placeholder="Search bills of materials..."
-                        className="border-white/10 bg-white/5 pl-9 text-white placeholder:text-neutral-500"
+                        className="border-neutral-200 bg-white pl-9 text-neutral-900 placeholder:text-neutral-500"
                     />
                 </div>
-                <Button variant="outline" className="border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white">
+                <Button variant="outline" className="border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
                     <Filter className="mr-2 h-4 w-4" />
                     Filter
                 </Button>
             </div>
 
             {/* BOM List */}
-            <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-sm">
+            <Card className="border-neutral-200 bg-white shadow-sm">
                 <CardHeader>
-                    <CardTitle className="text-white">All BOMs</CardTitle>
+                    <CardTitle className="text-neutral-900">All BOMs</CardTitle>
                     <CardDescription className="text-neutral-500">
                         {sampleBOMs.length} bills of materials
                     </CardDescription>
@@ -65,14 +65,14 @@ export default function BOMPage() {
                         {sampleBOMs.map((bom) => (
                             <div
                                 key={bom.id}
-                                className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]"
+                                className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 p-4 transition-colors hover:bg-neutral-100/50"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
-                                        <FileStack className="h-5 w-5 text-amber-400" />
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
+                                        <FileStack className="h-5 w-5 text-amber-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-white">{bom.name}</p>
+                                        <p className="text-sm font-medium text-neutral-900">{bom.name}</p>
                                         <p className="text-xs text-neutral-500">
                                             {bom.id} · {bom.revision} · {bom.components} components
                                         </p>
@@ -82,10 +82,10 @@ export default function BOMPage() {
                                     variant="secondary"
                                     className={
                                         bom.status === "Active"
-                                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                                             : bom.status === "Draft"
-                                                ? "border-blue-500/20 bg-blue-500/10 text-blue-400"
-                                                : "border-white/10 bg-white/5 text-neutral-500"
+                                                ? "border-blue-200 bg-blue-50 text-blue-700"
+                                                : "border-neutral-200 bg-neutral-100 text-neutral-600"
                                     }
                                 >
                                     {bom.status}

@@ -71,18 +71,18 @@ export function Sidebar({
     return (
         <aside
             className={cn(
-                "flex h-screen flex-col border-r border-white/10 bg-neutral-900/95 backdrop-blur-xl transition-all duration-300",
+                "flex h-screen flex-col border-r border-neutral-200 bg-white transition-all duration-300",
                 collapsed ? "w-[68px]" : "w-64"
             )}
         >
             {/* Logo Area */}
             <div className="flex h-16 items-center gap-3 px-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 shadow-lg shadow-blue-500/20">
-                    <Package className="h-5 w-5 text-white" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden">
+                    <img src="/logo.png" alt="PWX Logo" className="h-full w-full object-contain" />
                 </div>
                 {!collapsed && (
                     <div className="flex flex-col overflow-hidden">
-                        <span className="truncate text-sm font-bold tracking-tight text-white">
+                        <span className="truncate text-sm font-bold tracking-tight text-neutral-900">
                             PWX Inventory
                         </span>
                         <span className="truncate text-[11px] text-neutral-500">
@@ -92,7 +92,7 @@ export function Sidebar({
                 )}
             </div>
 
-            <Separator className="bg-white/5" />
+            <Separator className="bg-neutral-200" />
 
             {/* Navigation */}
             <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
@@ -109,16 +109,16 @@ export function Sidebar({
                             className={cn(
                                 "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                                 isActive
-                                    ? "bg-blue-500/15 text-blue-400 shadow-sm shadow-blue-500/5"
-                                    : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200"
+                                    ? "bg-blue-50 text-blue-600 shadow-sm"
+                                    : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
                             )}
                         >
                             <item.icon
                                 className={cn(
                                     "h-[18px] w-[18px] shrink-0 transition-colors",
                                     isActive
-                                        ? "text-blue-400"
-                                        : "text-neutral-500 group-hover:text-neutral-300"
+                                        ? "text-blue-600"
+                                        : "text-neutral-500 group-hover:text-neutral-700"
                                 )}
                             />
                             {!collapsed && <span className="truncate">{item.label}</span>}
@@ -140,7 +140,7 @@ export function Sidebar({
                 })}
             </nav>
 
-            <Separator className="bg-white/5" />
+            <Separator className="bg-neutral-200" />
 
             {/* Bottom section */}
             <div className="space-y-2 p-3">
@@ -151,7 +151,7 @@ export function Sidebar({
                         size="sm"
                         onClick={onToggleCollapse}
                         className={cn(
-                            "w-full text-neutral-500 hover:bg-white/5 hover:text-neutral-300",
+                            "w-full text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900",
                             collapsed && "justify-center px-0"
                         )}
                     >
@@ -174,7 +174,7 @@ export function Sidebar({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleLogout}
-                                className="w-full justify-center px-0 text-neutral-500 hover:bg-red-500/10 hover:text-red-400"
+                                className="w-full justify-center px-0 text-neutral-500 hover:bg-red-50 hover:text-red-600"
                             >
                                 <LogOut className="h-4 w-4" />
                             </Button>
@@ -188,7 +188,7 @@ export function Sidebar({
                         variant="ghost"
                         size="sm"
                         onClick={handleLogout}
-                        className="w-full justify-start text-neutral-500 hover:bg-red-500/10 hover:text-red-400"
+                        className="w-full justify-start text-neutral-500 hover:bg-red-50 hover:text-red-600"
                     >
                         <LogOut className="mr-2 h-4 w-4" />
                         Sign Out
@@ -213,16 +213,16 @@ export function MobileSidebar() {
         <div className="flex h-full flex-col">
             {/* Logo */}
             <div className="flex h-16 items-center gap-3 px-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400">
-                    <Package className="h-5 w-5 text-white" />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden">
+                    <img src="/logo.png" alt="PWX Logo" className="h-full w-full object-contain" />
                 </div>
                 <div>
-                    <p className="text-sm font-bold text-white">PWX Inventory</p>
+                    <p className="text-sm font-bold text-neutral-900">PWX Inventory</p>
                     <p className="text-[11px] text-neutral-500">Management System</p>
                 </div>
             </div>
 
-            <Separator className="bg-white/5" />
+            <Separator className="bg-neutral-200" />
 
             {/* Nav */}
             <nav className="flex-1 space-y-1 px-3 py-4">
@@ -239,14 +239,14 @@ export function MobileSidebar() {
                             className={cn(
                                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all",
                                 isActive
-                                    ? "bg-blue-500/15 text-blue-400"
-                                    : "text-neutral-400 hover:bg-white/5 hover:text-neutral-200"
+                                    ? "bg-blue-50 text-blue-600"
+                                    : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
                             )}
                         >
                             <item.icon
                                 className={cn(
                                     "h-[18px] w-[18px]",
-                                    isActive ? "text-blue-400" : "text-neutral-500"
+                                    isActive ? "text-blue-600" : "text-neutral-500"
                                 )}
                             />
                             {item.label}
@@ -255,14 +255,14 @@ export function MobileSidebar() {
                 })}
             </nav>
 
-            <Separator className="bg-white/5" />
+            <Separator className="bg-neutral-200" />
 
             <div className="p-3">
                 <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleLogout}
-                    className="w-full justify-start text-neutral-500 hover:bg-red-500/10 hover:text-red-400"
+                    className="w-full justify-start text-neutral-500 hover:bg-red-50 hover:text-red-600"
                 >
                     <LogOut className="mr-2 h-4 w-4" />
                     Sign Out

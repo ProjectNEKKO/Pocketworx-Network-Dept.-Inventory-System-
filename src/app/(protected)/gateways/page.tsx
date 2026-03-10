@@ -24,10 +24,10 @@ export default function GatewaysPage() {
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white">
+                    <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
                         Gateways
                     </h1>
-                    <p className="mt-1 text-neutral-400">
+                    <p className="mt-1 text-neutral-500">
                         Manage and monitor your gateway devices
                     </p>
                 </div>
@@ -43,19 +43,19 @@ export default function GatewaysPage() {
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                     <Input
                         placeholder="Search gateways..."
-                        className="border-white/10 bg-white/5 pl-9 text-white placeholder:text-neutral-500"
+                        className="border-neutral-200 bg-white pl-9 text-neutral-900 placeholder:text-neutral-500"
                     />
                 </div>
-                <Button variant="outline" className="border-white/10 text-neutral-400 hover:bg-white/5 hover:text-white">
+                <Button variant="outline" className="border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
                     <Filter className="mr-2 h-4 w-4" />
                     Filter
                 </Button>
             </div>
 
             {/* Gateway List */}
-            <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-sm">
+            <Card className="border-neutral-200 bg-white shadow-sm">
                 <CardHeader>
-                    <CardTitle className="text-white">All Gateways</CardTitle>
+                    <CardTitle className="text-neutral-900">All Gateways</CardTitle>
                     <CardDescription className="text-neutral-500">
                         {sampleGateways.length} gateways registered
                     </CardDescription>
@@ -65,14 +65,14 @@ export default function GatewaysPage() {
                         {sampleGateways.map((gw) => (
                             <div
                                 key={gw.id}
-                                className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]"
+                                className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 p-4 transition-colors hover:bg-neutral-100/50"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
-                                        <Radio className="h-5 w-5 text-blue-400" />
+                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
+                                        <Radio className="h-5 w-5 text-blue-600" />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-white">{gw.id}</p>
+                                        <p className="text-sm font-medium text-neutral-900">{gw.id}</p>
                                         <p className="text-xs text-neutral-500">{gw.location}</p>
                                     </div>
                                 </div>
@@ -85,8 +85,8 @@ export default function GatewaysPage() {
                                         variant="secondary"
                                         className={
                                             gw.status === "Online"
-                                                ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
-                                                : "border-red-500/20 bg-red-500/10 text-red-400"
+                                                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                : "border-red-200 bg-red-50 text-red-700"
                                         }
                                     >
                                         {gw.status}
