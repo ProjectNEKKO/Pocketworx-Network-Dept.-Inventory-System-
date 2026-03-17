@@ -85,10 +85,10 @@ export default function DashboardPage() {
         <div className="space-y-8">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-white">
+                <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
                     Dashboard
                 </h1>
-                <p className="mt-1 text-neutral-400">
+                <p className="mt-1 text-neutral-500">
                     Overview of your inventory system
                 </p>
             </div>
@@ -98,7 +98,7 @@ export default function DashboardPage() {
                 {stats.map((stat) => (
                     <Card
                         key={stat.label}
-                        className="border-white/5 bg-neutral-900/50 backdrop-blur-sm transition-all hover:border-white/10 hover:bg-neutral-900/80"
+                        className="border-neutral-200 bg-white shadow-sm transition-all hover:border-neutral-300 hover:shadow-md"
                     >
                         <CardContent className="p-5">
                             <div className="flex items-start justify-between">
@@ -106,10 +106,10 @@ export default function DashboardPage() {
                                     <p className="text-xs font-medium uppercase tracking-wider text-neutral-500">
                                         {stat.label}
                                     </p>
-                                    <p className="text-2xl font-bold text-white">{stat.value}</p>
+                                    <p className="text-2xl font-bold text-neutral-900">{stat.value}</p>
                                 </div>
                                 <div
-                                    className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} ${stat.shadow} shadow-lg`}
+                                    className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} ${stat.shadow} shadow-sm`}
                                 >
                                     <stat.icon className="h-5 w-5 text-white" />
                                 </div>
@@ -129,9 +129,9 @@ export default function DashboardPage() {
             {/* Content Grid */}
             <div className="grid gap-6 lg:grid-cols-3">
                 {/* Recent Activity */}
-                <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-sm lg:col-span-2">
+                <Card className="border-neutral-200 bg-white shadow-sm lg:col-span-2">
                     <CardHeader>
-                        <CardTitle className="text-white">Recent Activity</CardTitle>
+                        <CardTitle className="text-neutral-900">Recent Activity</CardTitle>
                         <CardDescription className="text-neutral-500">
                             Latest actions across your inventory
                         </CardDescription>
@@ -141,7 +141,7 @@ export default function DashboardPage() {
                             {recentActivity.map((item, i) => (
                                 <div
                                     key={i}
-                                    className="flex items-center gap-3 rounded-lg border border-white/5 bg-white/[0.02] p-3 transition-colors hover:bg-white/[0.04]"
+                                    className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50/50 p-3 transition-colors hover:bg-neutral-100/50"
                                 >
                                     {item.status === "success" && (
                                         <CheckCircle className="h-4 w-4 shrink-0 text-emerald-400" />
@@ -150,9 +150,9 @@ export default function DashboardPage() {
                                         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
                                     )}
                                     {item.status === "info" && (
-                                        <Package className="h-4 w-4 shrink-0 text-blue-400" />
+                                        <Package className="h-4 w-4 shrink-0 text-blue-500" />
                                     )}
-                                    <span className="flex-1 text-sm text-neutral-300">
+                                    <span className="flex-1 text-sm text-neutral-700">
                                         {item.action}
                                     </span>
                                     <span className="text-xs text-neutral-500">{item.time}</span>
@@ -163,16 +163,16 @@ export default function DashboardPage() {
                 </Card>
 
                 {/* Quick Stats */}
-                <Card className="border-white/5 bg-neutral-900/50 backdrop-blur-sm">
+                <Card className="border-neutral-200 bg-white shadow-sm">
                     <CardHeader>
-                        <CardTitle className="text-white">System Status</CardTitle>
+                        <CardTitle className="text-neutral-900">System Status</CardTitle>
                         <CardDescription className="text-neutral-500">
                             Current system health
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] p-3">
-                            <span className="text-sm text-neutral-300">Database</span>
+                        <div className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                            <span className="text-sm text-neutral-700">Database</span>
                             <Badge
                                 variant="secondary"
                                 className="border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
@@ -180,8 +180,8 @@ export default function DashboardPage() {
                                 Online
                             </Badge>
                         </div>
-                        <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] p-3">
-                            <span className="text-sm text-neutral-300">API</span>
+                        <div className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                            <span className="text-sm text-neutral-700">API</span>
                             <Badge
                                 variant="secondary"
                                 className="border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
@@ -189,8 +189,8 @@ export default function DashboardPage() {
                                 Healthy
                             </Badge>
                         </div>
-                        <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] p-3">
-                            <span className="text-sm text-neutral-300">Sync</span>
+                        <div className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                            <span className="text-sm text-neutral-700">Sync</span>
                             <Badge
                                 variant="secondary"
                                 className="border-amber-500/20 bg-amber-500/10 text-amber-400"
@@ -198,8 +198,8 @@ export default function DashboardPage() {
                                 Pending
                             </Badge>
                         </div>
-                        <div className="flex items-center justify-between rounded-lg border border-white/5 bg-white/[0.02] p-3">
-                            <span className="text-sm text-neutral-300">Last Backup</span>
+                        <div className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 p-3">
+                            <span className="text-sm text-neutral-700">Last Backup</span>
                             <span className="text-xs text-neutral-500">Today, 04:00 AM</span>
                         </div>
                     </CardContent>

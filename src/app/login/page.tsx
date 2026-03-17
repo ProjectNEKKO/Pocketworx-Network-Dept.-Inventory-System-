@@ -47,10 +47,10 @@ export default function LoginPage() {
             }
 
             router.push("/");
-        } catch (error: any) {
+        } catch (error: unknown) {
             setError("root", {
                 type: "manual",
-                message: error.message || "An unexpected error occurred during login.",
+                message: error instanceof Error ? error.message : "An unexpected error occurred during login.",
             });
             setIsLoading(false);
         }

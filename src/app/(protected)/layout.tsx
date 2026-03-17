@@ -22,13 +22,14 @@ export default function ProtectedLayout({
         if (!isAuthenticated()) {
             router.replace("/login");
         } else {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setChecking(false);
         }
     }, [router]);
 
     if (checking) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-neutral-950">
+            <div className="flex min-h-screen items-center justify-center bg-white">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
             </div>
         );
@@ -36,7 +37,7 @@ export default function ProtectedLayout({
 
     return (
         <TooltipProvider delayDuration={0}>
-            <div className="flex h-screen bg-neutral-950">
+            <div className="flex h-screen bg-white">
                 {/* Desktop sidebar */}
                 <div className="hidden md:block">
                     <Sidebar
@@ -46,25 +47,25 @@ export default function ProtectedLayout({
                 </div>
 
                 {/* Mobile top bar + sheet sidebar */}
-                <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center border-b border-white/10 bg-neutral-900/95 px-4 backdrop-blur-xl md:hidden">
+                <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-xl md:hidden">
                     <Sheet>
                         <SheetTrigger asChild>
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-neutral-400 hover:text-white"
+                                className="text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
                             >
                                 <Menu className="h-5 w-5" />
                             </Button>
                         </SheetTrigger>
                         <SheetContent
                             side="left"
-                            className="w-64 border-white/10 bg-neutral-900 p-0"
+                            className="w-64 border-r border-neutral-200 bg-white p-0"
                         >
                             <MobileSidebar />
                         </SheetContent>
                     </Sheet>
-                    <span className="ml-3 text-sm font-semibold text-white">
+                    <span className="ml-3 text-sm font-semibold text-neutral-900">
                         PWX Inventory
                     </span>
                 </div>
