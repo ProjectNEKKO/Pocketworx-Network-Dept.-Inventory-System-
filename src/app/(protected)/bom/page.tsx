@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     Card,
     CardContent,
@@ -35,8 +37,28 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-const sampleBOMs = [
+interface BOMEntry {
+    id: string;
+    name: string;
+    components: number;
+    revision: string;
+    status: string;
+    author: string;
+    lastModified: string;
+}
+
+const defaultBOMs: BOMEntry[] = [
     { id: "BOM-127", name: "PWX Gateway v3.2", components: 24, revision: "Rev C", status: "Active", author: "Alice Smith", lastModified: "2 hours ago" },
     { id: "BOM-126", name: "PWX Sensor Node v2", components: 18, revision: "Rev B", status: "Active", author: "Bob Jones", lastModified: "1 day ago" },
     { id: "BOM-125", name: "PWX Base Station", components: 42, revision: "Rev A", status: "Draft", author: "Charlie Brown", lastModified: "3 days ago" },
@@ -45,14 +67,88 @@ const sampleBOMs = [
 ];
 
 export default function BOMPage() {
+    const router = useRouter();
     const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-    const [selectedBOM, setSelectedBOM] = useState<typeof sampleBOMs[0] | null>(null);
+    const [selectedBOM, setSelectedBOM] = useState<BOMEntry | null>(null);
     const [sheetOpen, setSheetOpen] = useState(false);
+    const [allBOMs, setAllBOMs] = useState<BOMEntry[]>(defaultBOMs);
+    const [deleteTarget, setDeleteTarget] = useState<BOMEntry | null>(null);
 
-    const handleRowClick = (bom: typeof sampleBOMs[0]) => {
+    // Load saved BOMs from localStorage on mount
+    useEffect(() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem("pocketworx_boms") || "[]");
+            const mapped: BOMEntry[] = saved.map((b: any) => ({
+                id: b.id,
+                name: b.name,
+                components: Array.isArray(b.components) ? b.components.length : (b.components ?? 0),
+                revision: b.revision,
+                status: b.status,
+                author: b.author,
+                lastModified: b.lastModified,
+            }));
+            setAllBOMs([...mapped, ...defaultBOMs]);
+        } catch {
+            // Ignore parse errors
+        }
+    }, []);
+
+    // Sync helper — persist user-created BOMs back to localStorage
+    const syncToStorage = useCallback((boms: BOMEntry[]) => {
+        const defaultIds = new Set(defaultBOMs.map((b) => b.id));
+        const userBoms = boms.filter((b) => !defaultIds.has(b.id));
+        localStorage.setItem("pocketworx_boms", JSON.stringify(userBoms));
+    }, []);
+
+    const handleRowClick = (bom: BOMEntry) => {
         setSelectedBOM(bom);
         setSheetOpen(true);
     };
+
+    // ─── Row Actions ─────────────────────────────────────────────────
+    const handleEdit = useCallback((bom: BOMEntry) => {
+        // Store the BOM data to edit in sessionStorage so the create page can load it
+        sessionStorage.setItem("pocketworx_edit_bom", JSON.stringify(bom));
+        router.push("/bom/create?edit=" + bom.id);
+    }, [router]);
+
+    const handleDuplicate = useCallback((bom: BOMEntry) => {
+        const duplicate: BOMEntry = {
+            ...bom,
+            id: `BOM-${Date.now().toString().slice(-4)}`,
+            name: `${bom.name} (Copy)`,
+            status: "Draft",
+            lastModified: "Just now",
+            author: "Current User",
+        };
+        setAllBOMs((prev) => {
+            const next = [duplicate, ...prev];
+            syncToStorage(next);
+            return next;
+        });
+    }, [syncToStorage]);
+
+    const handleArchive = useCallback((bom: BOMEntry) => {
+        setAllBOMs((prev) => {
+            const next = prev.map((b) =>
+                b.id === bom.id
+                    ? { ...b, status: b.status === "Archived" ? "Active" : "Archived", lastModified: "Just now" }
+                    : b
+            );
+            syncToStorage(next);
+            return next;
+        });
+    }, [syncToStorage]);
+
+    const handleDeleteConfirm = useCallback(() => {
+        if (!deleteTarget) return;
+        setAllBOMs((prev) => {
+            const next = prev.filter((b) => b.id !== deleteTarget.id);
+            syncToStorage(next);
+            return next;
+        });
+        setDeleteTarget(null);
+    }, [deleteTarget, syncToStorage]);
 
     const getStatusBadgeVariant = (status: string) => {
         if (status === "Active") return "border-emerald-200 bg-emerald-50 text-emerald-700";
@@ -72,10 +168,12 @@ export default function BOMPage() {
                         Manage product BOMs and component requirements
                     </p>
                 </div>
-                <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create BOM
-                </Button>
+                <Link href="/bom/create">
+                    <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create BOM
+                    </Button>
+                </Link>
             </div>
 
             {/* Search, Filters, and View Toggle */}
@@ -120,7 +218,7 @@ export default function BOMPage() {
                 {viewMode === "grid" ? (
                     /* Grid Layout */
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {sampleBOMs.map((bom) => (
+                        {allBOMs.map((bom) => (
                             <Card key={bom.id} className="border-neutral-200 bg-white shadow-sm hover:shadow-md transition-shadow group relative cursor-pointer" onClick={() => handleRowClick(bom)}>
                                 <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
                                     <div className="flex items-center gap-3">
@@ -146,11 +244,11 @@ export default function BOMPage() {
                                                 <DropdownMenuContent align="end" className="w-[160px]">
                                                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
-                                                    <DropdownMenuItem><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
-                                                    <DropdownMenuItem><Archive className="mr-2 h-3.5 w-3.5" /> Archive</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleEdit(bom)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleDuplicate(bom)}><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
+                                                    <DropdownMenuItem onClick={() => handleArchive(bom)}><Archive className="mr-2 h-3.5 w-3.5" /> {bom.status === "Archived" ? "Unarchive" : "Archive"}</DropdownMenuItem>
                                                     <DropdownMenuSeparator />
-                                                    <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600"><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </div>
@@ -195,7 +293,7 @@ export default function BOMPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sampleBOMs.map((bom) => (
+                                    {allBOMs.map((bom) => (
                                         <TableRow key={bom.id} className="cursor-pointer hover:bg-neutral-50/50 transition-colors" onClick={() => handleRowClick(bom)}>
                                             <TableCell>
                                                 <div className="flex items-center gap-3">
@@ -229,11 +327,11 @@ export default function BOMPage() {
                                                     <DropdownMenuContent align="end" className="w-[160px]">
                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
-                                                        <DropdownMenuItem><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
-                                                        <DropdownMenuItem><Archive className="mr-2 h-3.5 w-3.5" /> Archive</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEdit(bom)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleDuplicate(bom)}><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleArchive(bom)}><Archive className="mr-2 h-3.5 w-3.5" /> {bom.status === "Archived" ? "Unarchive" : "Archive"}</DropdownMenuItem>
                                                         <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600"><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
+                                                        <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>
@@ -317,6 +415,28 @@ export default function BOMPage() {
                     </div>
                 </SheetContent>
             </Sheet>
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete BOM</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete <strong>{deleteTarget?.name}</strong> ({deleteTarget?.id})?
+                            This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDeleteConfirm}
+                            className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
