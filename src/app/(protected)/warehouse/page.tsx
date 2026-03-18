@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { AddWarehouseDialog, WarehouseLocation } from "./add_warehouse";
 import {
     Card,
     CardContent,
@@ -7,18 +11,25 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Warehouse as WarehouseIcon, Plus, Search, Filter, MapPin } from "lucide-react";
+import { Warehouse as WarehouseIcon, Search, Filter, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
-const sampleLocations = [
-    { name: "Warehouse A", zone: "Main Building", bins: 120, utilization: 87, status: "Active" },
-    { name: "Warehouse B", zone: "Annex East", bins: 80, utilization: 62, status: "Active" },
-    { name: "Warehouse C", zone: "Annex West", bins: 60, utilization: 94, status: "Near Full" },
-    { name: "Cold Storage", zone: "Basement", bins: 30, utilization: 45, status: "Active" },
-    { name: "Overflow Area", zone: "External", bins: 40, utilization: 12, status: "Low Use" },
+const initialLocations = [
+    { name: "Main Warehouse", zone: "Main Building", bins: 150, utilization: 75, status: "Active" },
+    { name: "Secondary Warehouse", zone: "Annex", bins: 80, utilization: 45, status: "Active" },
 ];
 
 export default function WarehousePage() {
+    const [locations, setLocations] = useState<WarehouseLocation[]>(initialLocations);
+
+    const handleAddLocation = (newLocation: WarehouseLocation) => {
+        setLocations((prev) => [...prev, newLocation]);
+    };
+
+    const handleImportLocations = (newLocations: WarehouseLocation[]) => {
+        setLocations((prev) => [...prev, ...newLocations]);
+    };
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -31,10 +42,10 @@ export default function WarehousePage() {
                         Manage storage locations and bin assignments
                     </p>
                 </div>
-                <Button className="bg-gradient-to-r from-emerald-600 to-green-500 text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-500 hover:to-green-400">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Location
-                </Button>
+                <AddWarehouseDialog 
+                    onAdd={handleAddLocation} 
+                    onImport={handleImportLocations} 
+                />
             </div>
 
             {/* Search & Filters */}
@@ -54,9 +65,9 @@ export default function WarehousePage() {
 
             {/* Location Grid */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {sampleLocations.map((loc) => (
+                {locations.map((loc, index) => (
                     <Card
-                        key={loc.name}
+                        key={`${loc.name}-${index}`}
                         className="border-neutral-200 bg-white shadow-sm transition-all hover:border-neutral-300 hover:shadow-md"
                     >
                         <CardHeader className="pb-3">

@@ -21,6 +21,7 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
+    Users,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +49,11 @@ const navItems = [
         label: "Warehouse",
         href: "/warehouse",
         icon: Warehouse,
+    },
+    {
+        label: "User Management",
+        href: "/users",
+        icon: Users,
     },
 ];
 
