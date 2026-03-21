@@ -26,52 +26,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { AddComponentsDialog, ComponentItem } from "./add_components";
-
-const initialComponents: ComponentItem[] = [
-    { name: "10ft RSC Pipe 1.5inch", sku: "PIPE-RSC-10FT-15", stock: 50, min: 100, category: "Hardware" },
-    { name: "2-Pin Male Plug", sku: "ELEC-2PIN-M", stock: 200, min: 100, category: "Accessories" },
-    { name: "2 hole C Clamp 1-1/2' RGD", sku: "HW-CCLAMP-15", stock: 30, min: 100, category: "Accessories" },
-    { name: "32cm SMA", sku: "CBL-SMA-32", stock: 50, min: 100, category: "Cable" },
-    { name: "32cm SMA Male to Female", sku: "CBL-SMA-MF-32", stock: 30, min: 100, category: "Cable" },
-    { name: "915Mhz Lora Antenna 3.8dBi", sku: "ANT-LORA-915-3.8", stock: 50, min: 100, category: "RF" },
-    { name: "915Mhz Lora Antenna 3dBi", sku: "ANT-LORA-915", stock: 50, min: 100, category: "RF" },
-    { name: "AC Outlet", sku: "ELEC-AC-OUTLET", stock: 50, min: 100, category: "Electrical" },
-    { name: "ADA Fruit for GSM Antenna", sku: "ADA-FRUIT-GSM", stock: 50, min: 100, category: "Enclosure" },
-    { name: "ADA Fruit Weatherproof Enclosure", sku: "ADA-FRUIT", stock: 75, min: 100, category: "Connector" },
-    { name: "Antenna Clamp", sku: "ANT-CLAMP", stock: 40, min: 100, category: "Hardware" },
-    { name: "AWG Gauge #12 TTHN", sku: "WIRE-12", stock: 40, min: 100, category: "Accessories" },
-    { name: "AWG Gauge #16 Duplex Flat Cord", sku: "WIRE-16-DUPLEX", stock: 50, min: 100, category: "Electrical" },
-    { name: "CAT5e Cable", sku: "CBL-CAT5E", stock: 120, min: 200, category: "Networking" },
-    { name: "Enclosure Dimension 168X149 mm", sku: "DIM-168-149", stock: 10, min: 50, category: "Enclosure" },
-    { name: "Extension Bracket", sku: "BRKT-EXT", stock: 50, min: 100, category: "Hardware" },
-    { name: "Gauge 12 AC Wire (Black)", sku: "WIRE-12-BLK", stock: 200, min: 200, category: "Accessories" },
-    { name: "Gauge 12 AC Wire (Red)", sku: "WIRE-12-RED", stock: 200, min: 200, category: "Accessories" },
-    { name: "Generic L- type Bracket", sku: "BRACKET-L", stock: 40, min: 100, category: "Accessories" },
-    { name: "M3x20mm Self-Tapping Counter Sunk Head Black Screw", sku: "HW-M3X20-SCREW", stock: 50, min: 100, category: "Hardware" },
-    { name: "M3x33mm Self-Tapping Counter Sunk Head Black Screw", sku: "HW-M3X33-SCREW", stock: 50, min: 100, category: "Hardware" },
-    { name: "M5 Bolts and Nuts", sku: "HW-M5-BN", stock: 200, min: 300, category: "Hardware" },
-    { name: "M5 Louver Vent with Nut", sku: "M5-VENT-NUT", stock: 90, min: 100, category: "Hardware" },
-    { name: "M6 Bolts and Nuts", sku: "HW-M6-BN", stock: 180, min: 200, category: "Accessories" },
-    { name: "M8 Tox and Screw", sku: "HW-M8-TOX", stock: 150, min: 300, category: "Hardware" },
-    { name: "N Type Female Plug to SMA Plug Male 32cm", sku: "CBL-NF-SMAM-32", stock: 60, min: 100, category: "Cable" },
-    { name: "NEMA R3 Enclosure", sku: "ENCL-NEMA-R3", stock: 50, min: 100, category: "Enclosure" },
-    { name: "Outlet 4- Gang (For Extension)", sku: "ELEC-OUT-4G", stock: 25, min: 100, category: "Accessories" },
-    { name: "Paddle Antenna", sku: "ANT-PADDLE", stock: 35, min: 100, category: "RF" },
-    { name: "Padlock (Combination)", sku: "HW-PADLOCK-COMB", stock: 50, min: 100, category: "Hardware" },
-    { name: "Panasonic Outlet (Receptacle)", sku: "ELEC-PAN-OUT", stock: 40, min: 100, category: "Accessories" },
-    { name: "Plastic Molding (5/8'')", sku: "HW-MOLD-58", stock: 60, min: 100, category: "Accessories" },
-    { name: "PoE Adaptor 24v ", sku: "POE-24V", stock: 40, min: 100, category: "Networking" },
-    { name: "POE Splitter", sku: "NET-POE-SPLIT", stock: 50, min: 100, category: "Networking" },
-    { name: "RG316 Bulk Head", sku: "RG316-BULK-HEAD", stock: 40, min: 100, category: "Cable" },
-    { name: "RJ45 CAT6 Lan Cable (White)", sku: "CBL-CAT6-WHT", stock: 100, min: 200, category: "Networking" },
-    { name: "RJ45 Connector Passthrough", sku: "RJ45-PASS-THROUGH", stock: 40, min: 100, category: "Networking" },
-    { name: "Shieldcon LQT Galvanized Flexible Conduit (Soft) 1/2\"x50m Roll", sku: "HW-FLEX-COND-12", stock: 50, min: 100, category: "Hardware" },
-    { name: "Tofu Heatsink (White)", sku: "HS-TOFU-WHT", stock: 25, min: 100, category: "Hardware" },
-    { name: "U BOLTS 1 1/2 \"", sku: "HW-UBOLT-15", stock: 45, min: 100, category: "Accessories" },
-].map((item, index) => ({
-    ...item,
-    warehouse: index % 2 === 0 ? "Main Warehouse" : "Secondary Warehouse"
-}));
+import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
+import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
 
 function getStatusInfo(stock: number, min: number) {
     const stockPercent = Math.round((stock / min) * 100);
@@ -265,14 +221,24 @@ function ComponentDetailDialog({
 
 // --- Main Page ---
 export default function ComponentsPage() {
-    const [components, setComponents] = useState<ComponentItem[]>(initialComponents);
+    const [components, setComponents] = useState<ComponentItem[]>(COMPONENT_CATALOG_SEED);
     const [selectedComp, setSelectedComp] = useState<ComponentItem | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
 
+    /* eslint-disable react-hooks/set-state-in-effect -- load persisted catalog after mount */
+    useEffect(() => {
+        setComponents(loadComponentCatalog(COMPONENT_CATALOG_SEED));
+    }, []);
+    /* eslint-enable react-hooks/set-state-in-effect */
+
     const handleAddComponent = (newComp: ComponentItem) => {
-        setComponents([...components, newComp]);
+        setComponents((prev) => {
+            const next = [...prev, newComp];
+            saveComponentCatalog(next);
+            return next;
+        });
     };
 
     const handleRowClick = (comp: ComponentItem) => {
@@ -281,9 +247,19 @@ export default function ComponentsPage() {
     };
 
     const handleUpdate = (sku: string, newStock: number, imageUrl?: string) => {
-        setComponents(prev =>
-            prev.map(c => c.sku === sku ? { ...c, stock: newStock, image: imageUrl !== undefined ? imageUrl : c.image } : c)
-        );
+        setComponents((prev) => {
+            const next = prev.map((c) =>
+                c.sku === sku
+                    ? {
+                          ...c,
+                          stock: newStock,
+                          image: imageUrl !== undefined ? imageUrl : c.image,
+                      }
+                    : c
+            );
+            saveComponentCatalog(next);
+            return next;
+        });
     };
 
     const handleCloseDialog = () => {

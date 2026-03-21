@@ -40,6 +40,8 @@ export interface ComponentItem {
   category: string;
   image?: string;
   warehouse?: string;
+  /** Optional standard unit cost for BOM roll-up (USD). */
+  unitCost?: number;
 }
 
 const formSchema = z.object({
@@ -47,6 +49,10 @@ const formSchema = z.object({
   sku: z.string().min(1, "SKU is required"),
   stock: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Stock must be a non-negative number"),
   min: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Minimum stock must be a non-negative number"),
+  unitCost: z.string().refine(
+    (v) => v === "" || (!isNaN(Number(v)) && Number(v) >= 0),
+    "Unit cost must be a non-negative number"
+  ),
   category: z.string().min(1, "Category is required"),
   warehouse: z.string().min(1, "Warehouse is required"),
 });
@@ -69,6 +75,7 @@ export function AddComponentsDialog({
       sku: "",
       stock: "",
       min: "",
+      unitCost: "",
       category: "",
       warehouse: "Main Warehouse",
     },
@@ -106,6 +113,8 @@ export function AddComponentsDialog({
       category: values.category,
       warehouse: values.warehouse,
       image: imageUrl,
+      unitCost:
+        values.unitCost === "" ? undefined : Number(values.unitCost),
     });
     
     form.reset();
@@ -223,6 +232,19 @@ export function AddComponentsDialog({
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="unitCost"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Standard unit cost (USD, optional)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="category"
