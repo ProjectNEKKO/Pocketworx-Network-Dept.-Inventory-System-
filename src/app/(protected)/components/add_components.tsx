@@ -40,7 +40,7 @@ export interface ComponentItem {
   category: string;
   image?: string;
   warehouse?: string;
-  /** Optional standard unit cost for BOM roll-up (USD). */
+  /** Optional standard unit cost for BOM roll-up (PHP). */
   unitCost?: number;
 }
 
@@ -237,7 +237,7 @@ export function AddComponentsDialog({
               name="unitCost"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Standard unit cost (USD, optional)</FormLabel>
+                  <FormLabel>Standard unit cost (PHP, optional)</FormLabel>
                   <FormControl>
                     <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
                   </FormControl>

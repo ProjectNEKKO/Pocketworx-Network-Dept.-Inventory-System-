@@ -17,6 +17,7 @@ import {
     Radio,
     Cpu,
     FileStack,
+    Archive,
     Warehouse,
     LogOut,
     ChevronLeft,
@@ -43,6 +44,11 @@ const navItems = [
         label: "Bill of Materials",
         href: "/bom",
         icon: FileStack,
+    },
+    {
+        label: "Archived BOMs",
+        href: "/bom/archived",
+        icon: Archive,
     },
     {
         label: "Warehouse",
@@ -100,7 +106,9 @@ export function Sidebar({
                     const isActive =
                         item.href === "/"
                             ? pathname === "/"
-                            : pathname.startsWith(item.href);
+                            : item.href === "/bom"
+                              ? pathname === "/bom"
+                              : pathname.startsWith(item.href);
 
                     const linkContent = (
                         <Link
@@ -230,7 +238,9 @@ export function MobileSidebar() {
                     const isActive =
                         item.href === "/"
                             ? pathname === "/"
-                            : pathname.startsWith(item.href);
+                            : item.href === "/bom"
+                              ? pathname === "/bom"
+                              : pathname.startsWith(item.href);
 
                     return (
                         <Link

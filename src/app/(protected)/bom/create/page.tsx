@@ -9,7 +9,7 @@ import {
     Suspense,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { findBomById, type StoredComponentRow } from "../page";
+import { findBomById, type StoredComponentRow } from "../bom-storage";
 import type { ComponentItem } from "@/app/(protected)/components/add_components";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
 import { loadComponentCatalog } from "@/lib/inventory-catalog";
