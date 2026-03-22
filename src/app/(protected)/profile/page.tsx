@@ -26,9 +26,10 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { getRole } from "@/lib/auth";
+import { useClientRole } from "@/lib/use-client-role";
 
 export default function ProfilePage() {
+    const { role } = useClientRole();
     const [isEditing, setIsEditing] = useState(false);
     const [profile, setProfile] = useState({
         name: "Admin Setup",
@@ -183,7 +184,7 @@ export default function ProfilePage() {
                         <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 uppercase tracking-widest">
                             <ShieldCheck className="h-3.5 w-3.5" /> Role
                         </label>
-                        {isEditing && getRole() === "admin" ? (
+                        {isEditing && role === "admin" ? (
                             <Select
                                 value={tempProfile.role}
                                 onValueChange={(value) => setTempProfile({ ...tempProfile, role: value })}

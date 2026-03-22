@@ -25,7 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { getRole } from "@/lib/auth";
+import { useClientRole } from "@/lib/use-client-role";
 import { AddComponentsDialog, ComponentItem } from "./add_components";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
 import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
@@ -222,6 +222,7 @@ function ComponentDetailDialog({
 
 // --- Main Page ---
 export default function ComponentsPage() {
+    const { role } = useClientRole();
     const [components, setComponents] = useState<ComponentItem[]>(COMPONENT_CATALOG_SEED);
     const [selectedComp, setSelectedComp] = useState<ComponentItem | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -292,7 +293,7 @@ export default function ComponentsPage() {
                         Track and manage electronic components inventory
                     </p>
                 </div>
-                {getRole() === "admin" && (
+                {role === "admin" && (
                     <AddComponentsDialog
                         onAdd={handleAddComponent}
                         existingSkus={components.map(c => c.sku)}
@@ -386,7 +387,7 @@ export default function ComponentsPage() {
                                         >
                                             {status}
                                         </Badge>
-                                        {getRole() === "admin" && (
+                                        {role === "admin" && (
                                             <button
                                                 onClick={(e) => handleDelete(e, comp.sku)}
                                                 className="ml-1 p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"

@@ -14,7 +14,7 @@ import { Users, Search, Filter, Shield, MoreVertical, Trash2, Pencil } from "luc
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AddUserDialog, UserAccount } from "./add_user";
-import { getRole } from "@/lib/auth";
+import { useClientRole } from "@/lib/use-client-role";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -31,17 +31,19 @@ const initialUsers: UserAccount[] = [
 
 export default function UsersPage() {
     const router = useRouter();
+    const { role, ready } = useClientRole();
     const [users, setUsers] = useState<UserAccount[]>(initialUsers);
     const [search, setSearch] = useState("");
     const [roleFilter, setRoleFilter] = useState<"All" | "Co-Admin" | "User">("All");
 
     useEffect(() => {
-        if (getRole() !== "admin") {
+        if (!ready) return;
+        if (role !== "admin") {
             router.replace("/");
         }
-    }, [router]);
+    }, [ready, role, router]);
 
-    if (getRole() !== "admin") return null;
+    if (role !== "admin") return null;
 
     const handleAddUser = (newUser: UserAccount) => {
         setUsers((prev) => [...prev, newUser]);

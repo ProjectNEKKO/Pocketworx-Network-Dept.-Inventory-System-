@@ -25,7 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { getRole } from "@/lib/auth";
+import { useClientRole } from "@/lib/use-client-role";
 
 import { AddGatewaysDialog, GatewayItem } from "./add_gateways";
 
@@ -208,6 +208,7 @@ function GatewayDetailDialog({
 }
 
 export default function GatewaysPage() {
+    const { role } = useClientRole();
     const [gateways, setGateways] = useState<GatewayItem[]>(initialGateways);
     const [search, setSearch] = useState("");
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
@@ -257,7 +258,7 @@ export default function GatewaysPage() {
                         Manage and monitor your gateway devices
                     </p>
                 </div>
-                {getRole() === "admin" && (
+                {role === "admin" && (
                     <AddGatewaysDialog 
                         onAdd={handleAddGateway} 
                         existingSkus={gateways.map(g => g.sku)} 
@@ -324,7 +325,7 @@ export default function GatewaysPage() {
                                     <div className="hidden text-right sm:block">
                                         <p className="text-xs text-neutral-500 mb-0.5">Quantity: <span className="font-medium text-neutral-700">{gw.quantity}</span></p>
                                     </div>
-                                    {getRole() === "admin" && (
+                                    {role === "admin" && (
                                         <button
                                             onClick={(e) => handleDelete(e, gw.sku)}
                                             className="p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"

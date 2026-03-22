@@ -10,7 +10,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { getRole } from "@/lib/auth";
+import { useClientRole } from "@/lib/use-client-role";
 import { Badge } from "@/components/ui/badge";
 import { Warehouse as WarehouseIcon, Search, Filter, MapPin, Package, Settings2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ const mockComponents = [
 ];
 
 export default function WarehousePage() {
+    const { role } = useClientRole();
     const [locations, setLocations] = useState<WarehouseLocation[]>(initialLocations);
     const [search, setSearch] = useState("");
     
@@ -75,7 +76,7 @@ export default function WarehousePage() {
                         Manage storage locations and bin assignments
                     </p>
                 </div>
-                {getRole() === "admin" && (
+                {role === "admin" && (
                     <AddWarehouseDialog 
                         onAdd={handleAddLocation} 
                         onImport={handleImportLocations} 

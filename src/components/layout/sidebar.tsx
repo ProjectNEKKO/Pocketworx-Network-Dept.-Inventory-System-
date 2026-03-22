@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { logout, getRole } from "@/lib/auth";
+import { logout } from "@/lib/auth";
+import { useClientRole } from "@/lib/use-client-role";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -64,7 +65,7 @@ export function Sidebar({
 }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const role = getRole();
+    const { role } = useClientRole();
     const visibleItems = navItems.filter(
         (item) => !("adminOnly" in item && item.adminOnly) || role === "admin"
     );
@@ -203,7 +204,7 @@ export function Sidebar({
 export function MobileSidebar() {
     const pathname = usePathname();
     const router = useRouter();
-    const role = getRole();
+    const { role } = useClientRole();
     const visibleItems = navItems.filter(
         (item) => !("adminOnly" in item && item.adminOnly) || role === "admin"
     );

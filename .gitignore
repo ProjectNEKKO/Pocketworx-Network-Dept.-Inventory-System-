@@ -47,3 +47,10 @@ lint.txt
 # windows system files
 Thumbs.db
 Desktop.ini
+
+# editor & local tooling
+.idea/
+*.swp
+*.swo
+.turbo
+.eslintcache
