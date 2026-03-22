@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Cpu, Search, Plus, Minus, Package, Upload } from "lucide-react";
+import { Cpu, Search, Plus, Minus, Package, Upload, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
     Dialog,
@@ -25,6 +25,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { getRole } from "@/lib/auth";
 import { AddComponentsDialog, ComponentItem } from "./add_components";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
 import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
@@ -267,6 +268,11 @@ export default function ComponentsPage() {
         setSelectedComp(null);
     };
 
+    const handleDelete = (e: React.MouseEvent, sku: string) => {
+        e.stopPropagation();
+        setComponents(prev => prev.filter(c => c.sku !== sku));
+    };
+
     const filtered = components.filter(c => {
         const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
                               c.sku.toLowerCase().includes(search.toLowerCase());
@@ -286,10 +292,12 @@ export default function ComponentsPage() {
                         Track and manage electronic components inventory
                     </p>
                 </div>
-                <AddComponentsDialog
-                    onAdd={handleAddComponent}
-                    existingSkus={components.map(c => c.sku)}
-                />
+                {getRole() === "admin" && (
+                    <AddComponentsDialog
+                        onAdd={handleAddComponent}
+                        existingSkus={components.map(c => c.sku)}
+                    />
+                )}
             </div>
 
             {/* Search & Filters */}
@@ -307,10 +315,10 @@ export default function ComponentsPage() {
                     <SelectTrigger className="w-full sm:w-[200px] border-neutral-200 bg-white text-neutral-900">
                         <SelectValue placeholder="All Warehouses" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white border-neutral-200 text-neutral-900 z-50">
+                    <SelectContent position="popper" sideOffset={4} className="bg-white border-neutral-200 text-neutral-900 z-50">
                         <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Warehouses</SelectItem>
-                        <SelectItem value="Main Warehouse" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Main Warehouse</SelectItem>
-                        <SelectItem value="Secondary Warehouse" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Secondary Warehouse</SelectItem>
+                        <SelectItem value="PWX IoT Hub" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">PWX IoT Hub</SelectItem>
+                        <SelectItem value="Genis" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Genis</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -340,8 +348,12 @@ export default function ComponentsPage() {
                                     }}
                                 >
                                     <div className="flex items-center gap-4">
-                                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50">
-                                            <Cpu className="h-5 w-5 text-violet-600" />
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 overflow-hidden border border-violet-100/50">
+                                            {comp.image ? (
+                                                <img src={comp.image} alt={comp.name} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <Cpu className="h-5 w-5 text-violet-600" />
+                                            )}
                                         </div>
                                         <div>
                                             <p className="text-sm font-medium text-neutral-900">{comp.name}</p>
@@ -374,6 +386,15 @@ export default function ComponentsPage() {
                                         >
                                             {status}
                                         </Badge>
+                                        {getRole() === "admin" && (
+                                            <button
+                                                onClick={(e) => handleDelete(e, comp.sku)}
+                                                className="ml-1 p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                                title="Delete component"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );

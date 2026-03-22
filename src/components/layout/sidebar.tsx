@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { logout } from "@/lib/auth";
+import { logout, getRole } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -12,7 +12,6 @@ import {
     TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-    Package,
     LayoutDashboard,
     Radio,
     Cpu,
@@ -22,40 +21,37 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
+    Users,
+    UserCircle,
 } from "lucide-react";
 
 const navItems = [
+    { label: "Dashboard", href: "/", icon: LayoutDashboard },
+    { label: "Gateways", href: "/gateways", icon: Radio },
+    { label: "Components", href: "/components", icon: Cpu },
+    { label: "Bill of Materials", href: "/bom", icon: FileStack },
+    { label: "Archived BOMs", href: "/bom/archived", icon: Archive },
+    { label: "Warehouse", href: "/warehouse", icon: Warehouse },
     {
-        label: "Dashboard",
-        href: "/",
-        icon: LayoutDashboard,
+        label: "User Management",
+        href: "/users",
+        icon: Users,
+        adminOnly: true,
     },
-    {
-        label: "Gateways",
-        href: "/gateways",
-        icon: Radio,
-    },
-    {
-        label: "Components",
-        href: "/components",
-        icon: Cpu,
-    },
-    {
-        label: "Bill of Materials",
-        href: "/bom",
-        icon: FileStack,
-    },
-    {
-        label: "Archived BOMs",
-        href: "/bom/archived",
-        icon: Archive,
-    },
-    {
-        label: "Warehouse",
-        href: "/warehouse",
-        icon: Warehouse,
-    },
-];
+    { label: "User Profile", href: "/profile", icon: UserCircle },
+] as const;
+
+function isNavItemActive(pathname: string, href: string): boolean {
+    if (href === "/") return pathname === "/";
+    if (href === "/bom/archived") return pathname.startsWith("/bom/archived");
+    if (href === "/bom") {
+        return (
+            pathname === "/bom" ||
+            (pathname.startsWith("/bom/") && !pathname.startsWith("/bom/archived"))
+        );
+    }
+    return pathname.startsWith(href);
+}
 
 interface SidebarProps {
     collapsed?: boolean;
@@ -68,6 +64,10 @@ export function Sidebar({
 }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
+    const role = getRole();
+    const visibleItems = navItems.filter(
+        (item) => !("adminOnly" in item && item.adminOnly) || role === "admin"
+    );
 
     const handleLogout = () => {
         logout();
@@ -102,13 +102,8 @@ export function Sidebar({
 
             {/* Navigation */}
             <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-                {navItems.map((item) => {
-                    const isActive =
-                        item.href === "/"
-                            ? pathname === "/"
-                            : item.href === "/bom"
-                              ? pathname === "/bom"
-                              : pathname.startsWith(item.href);
+                {visibleItems.map((item) => {
+                    const isActive = isNavItemActive(pathname, item.href);
 
                     const linkContent = (
                         <Link
@@ -152,7 +147,6 @@ export function Sidebar({
 
             {/* Bottom section */}
             <div className="space-y-2 p-3">
-                {/* Collapse toggle */}
                 {onToggleCollapse && (
                     <Button
                         variant="ghost"
@@ -174,7 +168,6 @@ export function Sidebar({
                     </Button>
                 )}
 
-                {/* Logout */}
                 {collapsed ? (
                     <Tooltip delayDuration={0}>
                         <TooltipTrigger asChild>
@@ -207,10 +200,13 @@ export function Sidebar({
     );
 }
 
-/* Mobile-friendly sidebar content (used inside Sheet) */
 export function MobileSidebar() {
     const pathname = usePathname();
     const router = useRouter();
+    const role = getRole();
+    const visibleItems = navItems.filter(
+        (item) => !("adminOnly" in item && item.adminOnly) || role === "admin"
+    );
 
     const handleLogout = () => {
         logout();
@@ -219,7 +215,6 @@ export function MobileSidebar() {
 
     return (
         <div className="flex h-full flex-col">
-            {/* Logo */}
             <div className="flex h-16 items-center gap-3 px-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden">
                     <img src="/logo.png" alt="PWX Logo" className="h-full w-full object-contain" />
@@ -232,15 +227,9 @@ export function MobileSidebar() {
 
             <Separator className="bg-neutral-200" />
 
-            {/* Nav */}
             <nav className="flex-1 space-y-1 px-3 py-4">
-                {navItems.map((item) => {
-                    const isActive =
-                        item.href === "/"
-                            ? pathname === "/"
-                            : item.href === "/bom"
-                              ? pathname === "/bom"
-                              : pathname.startsWith(item.href);
+                {visibleItems.map((item) => {
+                    const isActive = isNavItemActive(pathname, item.href);
 
                     return (
                         <Link

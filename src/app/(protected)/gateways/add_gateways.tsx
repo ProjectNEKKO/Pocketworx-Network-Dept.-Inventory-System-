@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { CopyPlus, Package, Upload } from "lucide-react";
+import { Plus, Package, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -61,7 +61,7 @@ export function AddGatewaysDialog({
       id: "",
       sku: "",
       quantity: "1",
-      location: "Main Warehouse",
+      location: "PWX IoT Hub",
     },
   });
 
@@ -110,7 +110,7 @@ export function AddGatewaysDialog({
       else if (name.toLowerCase().includes("868")) prefix = "GW-868";
 
       const modifier = name.toLowerCase().includes("indoor") ? "I" : "O";
-      const whCode = warehouse === "Main Warehouse" ? "A" : "B";
+      const whCode = warehouse === "PWX IoT Hub" ? "A" : "B";
 
       form.setValue("sku", `${prefix}-${modifier}${whCode}`);
   }
@@ -118,8 +118,8 @@ export function AddGatewaysDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg shadow-blue-500/25 hover:from-blue-500 hover:to-cyan-400">
-          <CopyPlus className="mr-2 h-4 w-4" />
+        <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
+          <Plus className="mr-2 h-4 w-4" />
           Add Gateway
         </Button>
       </DialogTrigger>
@@ -236,9 +236,9 @@ export function AddGatewaysDialog({
                             <SelectValue placeholder="Select warehouse" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="bg-white text-black border-neutral-200">
-                          <SelectItem value="Main Warehouse">Main Warehouse</SelectItem>
-                          <SelectItem value="Secondary Warehouse">Secondary Warehouse</SelectItem>
+                        <SelectContent position="popper" sideOffset={4} className="bg-white text-black border-neutral-200">
+                          <SelectItem value="PWX IoT Hub">PWX IoT Hub</SelectItem>
+                          <SelectItem value="Genis">Genis</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -260,7 +260,7 @@ export function AddGatewaysDialog({
                 </Button>
                 <Button 
                     type="submit"
-                    className="h-10 bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-md shadow-blue-500/20 transition-all hover:-translate-y-px w-full sm:w-auto"
+                    className="h-10 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white font-medium shadow-md shadow-amber-500/20 transition-all hover:-translate-y-px w-full sm:w-auto"
                 >
                     Register Gateway
                 </Button>

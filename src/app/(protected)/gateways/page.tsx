@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Radio, Plus, Search, Minus, Upload } from "lucide-react";
+import { Radio, Plus, Search, Minus, Upload, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
     Dialog,
@@ -25,22 +25,23 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { getRole } from "@/lib/auth";
 
 import { AddGatewaysDialog, GatewayItem } from "./add_gateways";
 
 const initialGateways: GatewayItem[] = [
     // Main Warehouse
-    { id: "Gateway 915 Outdoor", sku: "GW-915-OA", location: "Main Warehouse", quantity: 1 },
-    { id: "Gateway 868 Outdoor", sku: "GW-868-OA", location: "Main Warehouse", quantity: 2 },
-    { id: "Gateway 915 Indoor", sku: "GW-915-IA", location: "Main Warehouse", quantity: 1 },
-    { id: "Gateway 868 Indoor", sku: "GW-868-IA", location: "Main Warehouse", quantity: 5 },
-    { id: "Femto Outdoor", sku: "GW-FM-OA", location: "Main Warehouse", quantity: 3 },
+    { id: "Gateway 915 Outdoor", sku: "GW-915-OA", location: "PWX IoT Hub", quantity: 1 },
+    { id: "Gateway 868 Outdoor", sku: "GW-868-OA", location: "PWX IoT Hub", quantity: 2 },
+    { id: "Gateway 915 Indoor", sku: "GW-915-IA", location: "PWX IoT Hub", quantity: 1 },
+    { id: "Gateway 868 Indoor", sku: "GW-868-IA", location: "PWX IoT Hub", quantity: 5 },
+    { id: "Femto Outdoor", sku: "GW-FM-OA", location: "PWX IoT Hub", quantity: 3 },
     // Secondary Warehouse
-    { id: "Gateway 915 Outdoor", sku: "GW-915-OB", location: "Secondary Warehouse", quantity: 2 },
-    { id: "Gateway 868 Outdoor", sku: "GW-868-OB", location: "Secondary Warehouse", quantity: 1 },
-    { id: "Gateway 915 Indoor", sku: "GW-915-IB", location: "Secondary Warehouse", quantity: 3 },
-    { id: "Gateway 868 Indoor", sku: "GW-868-IB", location: "Secondary Warehouse", quantity: 2 },
-    { id: "Femto Outdoor", sku: "GW-FM-OB", location: "Secondary Warehouse", quantity: 1 },
+    { id: "Gateway 915 Outdoor", sku: "GW-915-OB", location: "Genis", quantity: 2 },
+    { id: "Gateway 868 Outdoor", sku: "GW-868-OB", location: "Genis", quantity: 1 },
+    { id: "Gateway 915 Indoor", sku: "GW-915-IB", location: "Genis", quantity: 3 },
+    { id: "Gateway 868 Indoor", sku: "GW-868-IB", location: "Genis", quantity: 2 },
+    { id: "Femto Outdoor", sku: "GW-FM-OB", location: "Genis", quantity: 1 },
 ];
 
 function GatewayDetailDialog({
@@ -233,6 +234,11 @@ export default function GatewaysPage() {
         );
     };
 
+    const handleDelete = (e: React.MouseEvent, sku: string) => {
+        e.stopPropagation();
+        setGateways(prev => prev.filter(g => g.sku !== sku));
+    };
+
     const filtered = gateways.filter(g => {
         const matchesSearch = g.id.toLowerCase().includes(search.toLowerCase()) || g.sku.toLowerCase().includes(search.toLowerCase());
         const matchesWarehouse = warehouseFilter === "All Warehouses" || g.location === warehouseFilter;
@@ -251,10 +257,12 @@ export default function GatewaysPage() {
                         Manage and monitor your gateway devices
                     </p>
                 </div>
-                <AddGatewaysDialog 
-                    onAdd={handleAddGateway} 
-                    existingSkus={gateways.map(g => g.sku)} 
-                />
+                {getRole() === "admin" && (
+                    <AddGatewaysDialog 
+                        onAdd={handleAddGateway} 
+                        existingSkus={gateways.map(g => g.sku)} 
+                    />
+                )}
             </div>
 
             {/* Search & Filters */}
@@ -274,8 +282,8 @@ export default function GatewaysPage() {
                     </SelectTrigger>
                     <SelectContent className="bg-white border-neutral-200 text-neutral-900 z-50">
                         <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Warehouses</SelectItem>
-                        <SelectItem value="Main Warehouse" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Main Warehouse</SelectItem>
-                        <SelectItem value="Secondary Warehouse" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Secondary Warehouse</SelectItem>
+                        <SelectItem value="PWX IoT Hub" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">PWX IoT Hub</SelectItem>
+                        <SelectItem value="Genis" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Genis</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -297,8 +305,12 @@ export default function GatewaysPage() {
                                 onClick={() => handleRowClick(gw)}
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors">
-                                        <Radio className="h-5 w-5 text-blue-600" />
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors overflow-hidden border border-blue-100/50">
+                                        {gw.image ? (
+                                            <img src={gw.image} alt={gw.id} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <Radio className="h-5 w-5 text-blue-600" />
+                                        )}
                                     </div>
                                     <div>
                                         <p className="text-sm font-medium text-neutral-900">{gw.id}</p>
@@ -312,6 +324,15 @@ export default function GatewaysPage() {
                                     <div className="hidden text-right sm:block">
                                         <p className="text-xs text-neutral-500 mb-0.5">Quantity: <span className="font-medium text-neutral-700">{gw.quantity}</span></p>
                                     </div>
+                                    {getRole() === "admin" && (
+                                        <button
+                                            onClick={(e) => handleDelete(e, gw.sku)}
+                                            className="p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                                            title="Delete gateway"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
