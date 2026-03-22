@@ -1,7 +1,20 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import {
+    useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    Suspense,
+} from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { findBomById, type StoredComponentRow } from "../bom-storage";
+import type { ComponentItem } from "@/app/(protected)/components/add_components";
+import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
+import { loadComponentCatalog } from "@/lib/inventory-catalog";
+import { formatCurrency } from "@/lib/format-currency";
+import { CatalogPickerDialog } from "../catalog-picker-dialog";
 import {
     Card,
     CardContent,
@@ -10,7 +23,6 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,9 +46,9 @@ import {
     ArrowLeft,
     ArrowRight,
     Check,
-    CircleDot,
     FileStack,
     PackagePlus,
+    PackageSearch,
     Plus,
     Save,
     Trash2,
@@ -56,6 +68,7 @@ interface ComponentRow {
     manufacturer: string;
     mpn: string;
     refDesignator: string;
+    catalogSku?: string;
 }
 
 const emptyComponent = (lineNumber: number): ComponentRow => ({
@@ -70,14 +83,38 @@ const emptyComponent = (lineNumber: number): ComponentRow => ({
     manufacturer: "",
     mpn: "",
     refDesignator: "",
+    catalogSku: undefined,
 });
+
+function normalizeLoadedRow(r: StoredComponentRow, index: number): ComponentRow {
+    return {
+        id: r.id || crypto.randomUUID(),
+        lineNumber: r.lineNumber || index + 1,
+        level: r.level ?? 1,
+        partNumber: r.partNumber ?? "",
+        description: r.description ?? "",
+        qpa: typeof r.qpa === "number" ? r.qpa : 1,
+        uom: r.uom ?? "Each",
+        unitCost: typeof r.unitCost === "number" ? r.unitCost : 0,
+        manufacturer: r.manufacturer ?? "",
+        mpn: r.mpn ?? "",
+        refDesignator: r.refDesignator ?? "",
+        catalogSku:
+            typeof r.catalogSku === "string" && r.catalogSku.trim() !== ""
+                ? r.catalogSku
+                : undefined,
+    };
+}
 
 const UOM_OPTIONS = ["Each", "Meters", "Feet", "Grams", "Kilograms", "Liters", "Milliliters", "Sets", "Rolls", "Boxes"];
 const PHASE_OPTIONS = ["Prototype", "Pre-Production", "Production", "End of Life"];
 
 // ─── Main Page ───────────────────────────────────────────────────────
-export default function CreateBOMPage() {
+function CreateBOMPageInner() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const editParam = searchParams.get("edit");
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [currentStep, setCurrentStep] = useState(1);
 
     // Step 1 state — Assembly Metadata
@@ -92,14 +129,89 @@ export default function CreateBOMPage() {
     // Step 2 state — Component Rows
     const [components, setComponents] = useState<ComponentRow[]>([
         emptyComponent(1),
-        emptyComponent(2),
-        emptyComponent(3),
     ]);
 
-    // Derived: Total BOM Cost
-    const totalBomCost = components.reduce(
-        (sum, c) => sum + c.qpa * c.unitCost,
-        0
+    const [catalog, setCatalog] =
+        useState<ComponentItem[]>(COMPONENT_CATALOG_SEED);
+    const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
+    const catalogPickerRowRef = useRef<string | null>(null);
+
+    const refreshCatalog = useCallback(() => {
+        setCatalog(loadComponentCatalog(COMPONENT_CATALOG_SEED));
+    }, []);
+
+    /* eslint-disable react-hooks/set-state-in-effect -- client-only edit form hydration */
+    // Load BOM from session or localStorage when opening /bom/create?edit=<id>
+    useEffect(() => {
+        if (!editParam) return;
+
+        let loadedFromSession = false;
+        try {
+            const raw = sessionStorage.getItem("pocketworx_edit_bom");
+            if (raw) {
+                const bom = JSON.parse(raw) as Record<string, unknown>;
+                if (String(bom.id ?? "") === editParam) {
+                    setBomName(String(bom.name ?? ""));
+                    setCpn(String(bom.cpn ?? ""));
+                    setRevision(String(bom.revision ?? "Rev A"));
+                    setPhase(String(bom.phase ?? "Prototype"));
+                    setAssemblyUom(String(bom.assemblyUom ?? "Each"));
+                    if (typeof bom.targetQty === "number") {
+                        setTargetQty(bom.targetQty);
+                    } else {
+                        setTargetQty(1);
+                    }
+                    setDescription(String(bom.description ?? ""));
+                    const rows = Array.isArray(bom.componentRows)
+                        ? (bom.componentRows as StoredComponentRow[])
+                        : Array.isArray(bom.components)
+                          ? (bom.components as StoredComponentRow[])
+                          : [];
+                    if (rows.length > 0) {
+                        setComponents(rows.map((r, i) => normalizeLoadedRow(r, i)));
+                    } else {
+                        setComponents([emptyComponent(1)]);
+                    }
+                    setEditingId(String(bom.id));
+                    sessionStorage.removeItem("pocketworx_edit_bom");
+                    loadedFromSession = true;
+                }
+            }
+        } catch {
+            // ignore invalid session payload
+        }
+
+        if (loadedFromSession) return;
+
+        const entry = findBomById(editParam);
+        if (!entry) return;
+
+        setBomName(entry.name);
+        setCpn(entry.cpn ?? "");
+        setRevision(entry.revision);
+        setPhase(entry.phase ?? "Prototype");
+        setAssemblyUom(entry.assemblyUom ?? "Each");
+        setTargetQty(entry.targetQty ?? 1);
+        setDescription(entry.description ?? "");
+        const rows = entry.componentRows ?? [];
+        if (rows.length > 0) {
+            setComponents(rows.map((r, i) => normalizeLoadedRow(r, i)));
+        } else {
+            setComponents([emptyComponent(1)]);
+        }
+        setEditingId(entry.id);
+    }, [editParam]);
+    /* eslint-enable react-hooks/set-state-in-effect */
+
+    const validComponents = useMemo(
+        () => components.filter((c) => c.partNumber.trim() !== ""),
+        [components]
+    );
+
+    const totalBomCost = useMemo(
+        () =>
+            validComponents.reduce((sum, c) => sum + c.qpa * c.unitCost, 0),
+        [validComponents]
     );
 
     const canProceedStep1 = bomName.trim().length > 0 && cpn.trim().length > 0;
@@ -122,9 +234,18 @@ export default function CreateBOMPage() {
     const updateRow = useCallback(
         (id: string, field: keyof ComponentRow, value: string | number) => {
             setComponents((prev) =>
-                prev.map((c) =>
-                    c.id === id ? { ...c, [field]: value } : c
-                )
+                prev.map((c) => {
+                    if (c.id !== id) return c;
+                    const next: ComponentRow = { ...c, [field]: value };
+                    if (field === "partNumber" && typeof value === "string") {
+                        const t = value.trim();
+                        next.catalogSku =
+                            c.catalogSku && t === c.catalogSku
+                                ? c.catalogSku
+                                : undefined;
+                    }
+                    return next;
+                })
             );
         },
         []
@@ -133,8 +254,23 @@ export default function CreateBOMPage() {
     // ─── Save Logic ──────────────────────────────────────────────────
     const handleSave = useCallback(
         (status: "Draft" | "Active") => {
+            const filteredComponents = components.filter(
+                (c) => c.partNumber.trim() !== ""
+            );
+            if (filteredComponents.length === 0) {
+                const ok = window.confirm(
+                    "This BOM has no lines with a part number. Save anyway?"
+                );
+                if (!ok) return;
+            }
+            const rolledUpCost = filteredComponents.reduce(
+                (sum, c) => sum + c.qpa * c.unitCost,
+                0
+            );
+            const id =
+                editingId ?? `BOM-${Date.now().toString().slice(-4)}`;
             const newBom = {
-                id: `BOM-${Date.now().toString().slice(-4)}`,
+                id,
                 name: bomName,
                 cpn,
                 revision,
@@ -142,22 +278,76 @@ export default function CreateBOMPage() {
                 assemblyUom,
                 targetQty: targetQty === "" ? 1 : targetQty,
                 description,
-                components: components.filter((c) => c.partNumber.trim() !== ""),
-                totalCost: totalBomCost,
+                components: filteredComponents,
+                totalCost: rolledUpCost,
                 status,
                 author: "Current User",
                 lastModified: "Just now",
             };
 
-            // Persist to localStorage
-            const existing = JSON.parse(localStorage.getItem("pocketworx_boms") || "[]");
-            existing.unshift(newBom);
+            const existing = JSON.parse(
+                localStorage.getItem("pocketworx_boms") || "[]"
+            ) as Record<string, unknown>[];
+
+            if (editingId) {
+                const idx = existing.findIndex((x) => x.id === editingId);
+                if (idx >= 0) {
+                    existing[idx] = newBom;
+                } else {
+                    existing.unshift(newBom);
+                }
+            } else {
+                existing.unshift(newBom);
+            }
             localStorage.setItem("pocketworx_boms", JSON.stringify(existing));
 
+            setEditingId(null);
             router.push("/bom");
         },
-        [bomName, cpn, revision, phase, assemblyUom, targetQty, description, components, totalBomCost, router]
+        [
+            editingId,
+            bomName,
+            cpn,
+            revision,
+            phase,
+            assemblyUom,
+            targetQty,
+            description,
+            components,
+            router,
+        ]
     );
+
+    const openCatalogPickerForRow = useCallback(
+        (rowId: string) => {
+            refreshCatalog();
+            catalogPickerRowRef.current = rowId;
+            setCatalogPickerOpen(true);
+        },
+        [refreshCatalog]
+    );
+
+    const handleCatalogPick = useCallback((item: ComponentItem) => {
+        const rowId = catalogPickerRowRef.current;
+        if (!rowId) return;
+        setComponents((prev) =>
+            prev.map((c) =>
+                c.id === rowId
+                    ? {
+                          ...c,
+                          catalogSku: item.sku,
+                          partNumber: item.sku,
+                          description: item.name,
+                          unitCost:
+                              typeof item.unitCost === "number"
+                                  ? item.unitCost
+                                  : 0,
+                      }
+                    : c
+            )
+        );
+        catalogPickerRowRef.current = null;
+    }, []);
 
     // ─── UI ──────────────────────────────────────────────────────────
     return (
@@ -181,7 +371,7 @@ export default function CreateBOMPage() {
                                 <PackagePlus className="h-4 w-4 text-amber-600" />
                             </div>
                             <h1 className="text-lg font-semibold text-neutral-900">
-                                Create New BOM
+                                {editingId ? "Edit BOM" : "Create New BOM"}
                             </h1>
                         </div>
                     </div>
@@ -430,7 +620,7 @@ export default function CreateBOMPage() {
                                         Components
                                     </p>
                                     <p className="text-lg font-bold text-neutral-900">
-                                        {components.length}
+                                        {validComponents.length}
                                     </p>
                                 </div>
                                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-center min-w-[120px]">
@@ -438,10 +628,7 @@ export default function CreateBOMPage() {
                                         Total BOM Cost
                                     </p>
                                     <p className="text-lg font-bold text-emerald-700">
-                                        ₱{totalBomCost.toLocaleString("en-PH", {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2,
-                                        })}
+                                        {formatCurrency(totalBomCost)}
                                     </p>
                                 </div>
                             </div>
@@ -455,8 +642,9 @@ export default function CreateBOMPage() {
                                         Component Line Items
                                     </CardTitle>
                                     <CardDescription className="text-neutral-500">
-                                        Add the parts and materials that make up
-                                        this assembly
+                                        Add parts manually or use the catalog
+                                        button to pull from the Components
+                                        inventory.
                                     </CardDescription>
                                 </div>
                                 <Button
@@ -539,18 +727,37 @@ export default function CreateBOMPage() {
                                                 </TableCell>
                                                 {/* Part Number */}
                                                 <TableCell>
-                                                    <Input
-                                                        value={row.partNumber}
-                                                        onChange={(e) =>
-                                                            updateRow(
-                                                                row.id,
-                                                                "partNumber",
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        placeholder="RES-10K"
-                                                        className="h-8 text-xs border-neutral-200"
-                                                    />
+                                                    <div className="flex min-w-[140px] items-center gap-1">
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="icon"
+                                                            className="h-8 w-8 shrink-0 border-amber-200 text-amber-800 hover:bg-amber-50"
+                                                            title="Pick from Components catalog"
+                                                            onClick={() =>
+                                                                openCatalogPickerForRow(
+                                                                    row.id
+                                                                )
+                                                            }
+                                                        >
+                                                            <PackageSearch className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                        <Input
+                                                            value={
+                                                                row.partNumber
+                                                            }
+                                                            onChange={(e) =>
+                                                                updateRow(
+                                                                    row.id,
+                                                                    "partNumber",
+                                                                    e.target
+                                                                        .value
+                                                                )
+                                                            }
+                                                            placeholder="RES-10K or SKU"
+                                                            className="h-8 min-w-0 flex-1 border-neutral-200 text-xs"
+                                                        />
+                                                    </div>
                                                 </TableCell>
                                                 {/* Description */}
                                                 <TableCell>
@@ -637,13 +844,9 @@ export default function CreateBOMPage() {
                                                 </TableCell>
                                                 {/* Total Cost (read-only) */}
                                                 <TableCell className="text-right text-xs font-medium text-neutral-700 tabular-nums">
-                                                    ₱
-                                                    {(
+                                                    {formatCurrency(
                                                         row.qpa * row.unitCost
-                                                    ).toLocaleString("en-PH", {
-                                                        minimumFractionDigits: 2,
-                                                        maximumFractionDigits: 2,
-                                                    })}
+                                                    )}
                                                 </TableCell>
                                                 {/* Manufacturer */}
                                                 <TableCell>
@@ -756,6 +959,30 @@ export default function CreateBOMPage() {
                     </div>
                 )}
             </div>
+
+            <CatalogPickerDialog
+                open={catalogPickerOpen}
+                onOpenChange={(open) => {
+                    setCatalogPickerOpen(open);
+                    if (!open) catalogPickerRowRef.current = null;
+                }}
+                catalog={catalog}
+                onPick={handleCatalogPick}
+            />
         </div>
+    );
+}
+
+export default function CreateBOMPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="flex min-h-screen items-center justify-center bg-white text-neutral-500">
+                    Loading…
+                </div>
+            }
+        >
+            <CreateBOMPageInner />
+        </Suspense>
     );
 }

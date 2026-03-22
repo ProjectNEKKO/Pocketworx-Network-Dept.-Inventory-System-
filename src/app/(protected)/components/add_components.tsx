@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Upload, X, Package } from "lucide-react";
+import { Plus, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +40,8 @@ export interface ComponentItem {
   category: string;
   image?: string;
   warehouse?: string;
+  /** Optional standard unit cost for BOM roll-up (PHP). */
+  unitCost?: number;
 }
 
 const formSchema = z.object({
@@ -47,6 +49,10 @@ const formSchema = z.object({
   sku: z.string().min(1, "SKU is required"),
   stock: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Stock must be a non-negative number"),
   min: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Minimum stock must be a non-negative number"),
+  unitCost: z.string().refine(
+    (v) => v === "" || (!isNaN(Number(v)) && Number(v) >= 0),
+    "Unit cost must be a non-negative number"
+  ),
   category: z.string().min(1, "Category is required"),
   warehouse: z.string().min(1, "Warehouse is required"),
 });
@@ -69,6 +75,7 @@ export function AddComponentsDialog({
       sku: "",
       stock: "",
       min: "",
+      unitCost: "",
       category: "",
       warehouse: "PWX IoT Hub",
     },
@@ -106,6 +113,8 @@ export function AddComponentsDialog({
       category: values.category,
       warehouse: values.warehouse,
       image: imageUrl,
+      unitCost:
+        values.unitCost === "" ? undefined : Number(values.unitCost),
     });
     
     form.reset();
@@ -124,7 +133,7 @@ export function AddComponentsDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
+        <Button className="bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-lg shadow-violet-500/25 hover:from-violet-500 hover:to-purple-400">
           <Plus className="mr-2 h-4 w-4" />
           Add Component
         </Button>
@@ -223,6 +232,19 @@ export function AddComponentsDialog({
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="unitCost"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Standard unit cost (PHP, optional)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min={0} step="0.01" placeholder="0.00" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -283,7 +305,7 @@ export function AddComponentsDialog({
               </Button>
               <Button 
                 type="submit" 
-                className="bg-gradient-to-r from-amber-600 to-orange-500 text-white hover:from-amber-500 hover:to-orange-400"
+                className="bg-gradient-to-r from-violet-600 to-purple-500 text-white hover:from-violet-500 hover:to-purple-400"
               >
                 Save
               </Button>

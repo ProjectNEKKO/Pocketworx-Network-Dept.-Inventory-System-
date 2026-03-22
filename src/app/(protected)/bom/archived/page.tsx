@@ -1,9 +1,9 @@
 "use client";
 
 import { Suspense } from "react";
-import { BOMManagementInner } from "./bom-management-inner";
+import { BOMManagementInner } from "../bom-management-inner";
 
-export default function BOMPage() {
+export default function ArchivedBOMPage() {
     return (
         <Suspense
             fallback={
@@ -12,7 +12,7 @@ export default function BOMPage() {
                 </div>
             }
         >
-            <BOMManagementInner variant="main" />
+            <BOMManagementInner variant="archived" />
         </Suspense>
     );
 }
