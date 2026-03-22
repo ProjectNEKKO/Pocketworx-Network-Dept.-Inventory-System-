@@ -70,7 +70,7 @@ export function AddComponentsDialog({
       stock: "",
       min: "",
       category: "",
-      warehouse: "Main Warehouse",
+      warehouse: "PWX IoT Hub",
     },
   });
 
@@ -124,7 +124,7 @@ export function AddComponentsDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-violet-600 to-purple-500 text-white shadow-lg shadow-violet-500/25 hover:from-violet-500 hover:to-purple-400">
+        <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
           <Plus className="mr-2 h-4 w-4" />
           Add Component
         </Button>
@@ -223,54 +223,56 @@ export function AddComponentsDialog({
                 )}
               />
             </div>
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="bg-white text-black">
-                      <SelectItem value="Enclosure">Enclosure</SelectItem>
-                      <SelectItem value="Electronics">Electronics</SelectItem>
-                      <SelectItem value="Hardware">Hardware</SelectItem>
-                      <SelectItem value="Networking">Networking</SelectItem>
-                      <SelectItem value="Cable">Cable</SelectItem>
-                      <SelectItem value="RF">RF</SelectItem>
-                      <SelectItem value="Electrical">Electrical</SelectItem>
-                      <SelectItem value="Accessories">Accessories</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="warehouse"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Warehouse</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select warehouse" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="bg-white text-black">
-                      <SelectItem value="Main Warehouse">Main Warehouse</SelectItem>
-                      <SelectItem value="Secondary Warehouse">Secondary Warehouse</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full bg-white text-black">
+                          <SelectValue placeholder="Select a category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
+                        <SelectItem value="Enclosure">Enclosure</SelectItem>
+                        <SelectItem value="Electronics">Electronics</SelectItem>
+                        <SelectItem value="Hardware">Hardware</SelectItem>
+                        <SelectItem value="Networking">Networking</SelectItem>
+                        <SelectItem value="Cable">Cable</SelectItem>
+                        <SelectItem value="RF">RF</SelectItem>
+                        <SelectItem value="Electrical">Electrical</SelectItem>
+                        <SelectItem value="Accessories">Accessories</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="warehouse"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Warehouse</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="w-full bg-white text-black">
+                          <SelectValue placeholder="Select warehouse" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
+                        <SelectItem value="PWX IoT Hub">PWX IoT Hub</SelectItem>
+                        <SelectItem value="Genis">Genis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <DialogFooter className="pt-4">
               <Button
                 type="button"
@@ -281,7 +283,7 @@ export function AddComponentsDialog({
               </Button>
               <Button 
                 type="submit" 
-                className="bg-gradient-to-r from-violet-600 to-purple-500 text-white hover:from-violet-500 hover:to-purple-400"
+                className="bg-gradient-to-r from-amber-600 to-orange-500 text-white hover:from-amber-500 hover:to-orange-400"
               >
                 Save
               </Button>

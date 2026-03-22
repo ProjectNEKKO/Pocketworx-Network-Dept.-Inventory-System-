@@ -140,7 +140,7 @@ export function AddWarehouseDialog({
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-emerald-600 to-green-500 text-white shadow-lg shadow-emerald-500/25 hover:from-emerald-500 hover:to-green-400">
+                <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Location
                 </Button>
@@ -264,7 +264,7 @@ export function AddWarehouseDialog({
                             </Button>
                             <Button
                                 type="submit"
-                                className="bg-gradient-to-r from-emerald-600 to-green-500 text-white hover:from-emerald-500 hover:to-green-400"
+                                className="bg-gradient-to-r from-amber-600 to-orange-500 text-white hover:from-amber-500 hover:to-orange-400"
                             >
                                 {fileName ? "Import" : "Save"}
                             </Button>

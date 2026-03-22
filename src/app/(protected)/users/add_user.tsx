@@ -88,7 +88,7 @@ export function AddUserDialog({
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-500 text-white shadow-lg shadow-blue-500/25 hover:from-blue-500 hover:to-indigo-400">
+                <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Account
                 </Button>
@@ -144,17 +144,17 @@ export function AddUserDialog({
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Role</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select user role" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent className="bg-white text-black">
-                                            <SelectItem value="Co-Admin">Co-Admin</SelectItem>
-                                            <SelectItem value="User">User</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select user role" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
+                                                <SelectItem value="Co-Admin">Co-Admin</SelectItem>
+                                                <SelectItem value="User">User</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -170,7 +170,7 @@ export function AddUserDialog({
                             </Button>
                             <Button
                                 type="submit"
-                                className="bg-gradient-to-r from-blue-600 to-indigo-500 text-white hover:from-blue-500 hover:to-indigo-400"
+                                className="bg-gradient-to-r from-amber-600 to-orange-500 text-white hover:from-amber-500 hover:to-orange-400"
                             >
                                 Create User
                             </Button>

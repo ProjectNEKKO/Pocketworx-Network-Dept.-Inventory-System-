@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getRole } from "@/lib/auth";
 import { LayoutGrid, List, MoreVertical, Pencil, Copy, Archive, Trash2, FileStack, Plus, Search, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -168,12 +169,14 @@ export default function BOMPage() {
                         Manage product BOMs and component requirements
                     </p>
                 </div>
-                <Link href="/bom/create">
-                    <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create BOM
-                    </Button>
-                </Link>
+                {getRole() === "admin" && (
+                    <Link href="/bom/create">
+                        <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Create BOM
+                        </Button>
+                    </Link>
+                )}
             </div>
 
             {/* Search, Filters, and View Toggle */}
@@ -247,8 +250,12 @@ export default function BOMPage() {
                                                     <DropdownMenuItem onClick={() => handleEdit(bom)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => handleDuplicate(bom)}><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => handleArchive(bom)}><Archive className="mr-2 h-3.5 w-3.5" /> {bom.status === "Archived" ? "Unarchive" : "Archive"}</DropdownMenuItem>
-                                                    <DropdownMenuSeparator />
-                                                    <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
+                                                    {getRole() === "admin" && (
+                                                        <>
+                                                            <DropdownMenuSeparator />
+                                                            <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
+                                                        </>
+                                                    )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </div>
@@ -330,8 +337,12 @@ export default function BOMPage() {
                                                         <DropdownMenuItem onClick={() => handleEdit(bom)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit BOM</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleDuplicate(bom)}><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => handleArchive(bom)}><Archive className="mr-2 h-3.5 w-3.5" /> {bom.status === "Archived" ? "Unarchive" : "Archive"}</DropdownMenuItem>
-                                                        <DropdownMenuSeparator />
-                                                        <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
+                                                        {getRole() === "admin" && (
+                                                            <>
+                                                                <DropdownMenuSeparator />
+                                                                <DropdownMenuItem className="text-red-600 focus:bg-red-50 focus:text-red-600" onClick={() => setDeleteTarget(bom)}><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
+                                                            </>
+                                                        )}
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>

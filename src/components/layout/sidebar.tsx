@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { logout } from "@/lib/auth";
+import { logout, getRole } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -22,39 +22,17 @@ import {
     ChevronLeft,
     ChevronRight,
     Users,
+    UserCircle,
 } from "lucide-react";
 
 const navItems = [
-    {
-        label: "Dashboard",
-        href: "/",
-        icon: LayoutDashboard,
-    },
-    {
-        label: "Gateways",
-        href: "/gateways",
-        icon: Radio,
-    },
-    {
-        label: "Components",
-        href: "/components",
-        icon: Cpu,
-    },
-    {
-        label: "Bill of Materials",
-        href: "/bom",
-        icon: FileStack,
-    },
-    {
-        label: "Warehouse",
-        href: "/warehouse",
-        icon: Warehouse,
-    },
-    {
-        label: "User Management",
-        href: "/users",
-        icon: Users,
-    },
+    { label: "Dashboard",        href: "/",          icon: LayoutDashboard },
+    { label: "Gateways",         href: "/gateways",  icon: Radio },
+    { label: "Components",       href: "/components",icon: Cpu },
+    { label: "Bill of Materials", href: "/bom",      icon: FileStack },
+    { label: "Warehouse",        href: "/warehouse", icon: Warehouse },
+    { label: "User Management",  href: "/users",     icon: Users, adminOnly: true },
+    { label: "User Profile",     href: "/profile",   icon: UserCircle },
 ];
 
 interface SidebarProps {
@@ -68,6 +46,8 @@ export function Sidebar({
 }: SidebarProps) {
     const pathname = usePathname();
     const router = useRouter();
+    const role = getRole();
+    const visibleItems = navItems.filter(item => !item.adminOnly || role === "admin");
 
     const handleLogout = () => {
         logout();
@@ -102,7 +82,7 @@ export function Sidebar({
 
             {/* Navigation */}
             <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-                {navItems.map((item) => {
+                {visibleItems.map((item) => {
                     const isActive =
                         item.href === "/"
                             ? pathname === "/"
@@ -209,6 +189,8 @@ export function Sidebar({
 export function MobileSidebar() {
     const pathname = usePathname();
     const router = useRouter();
+    const role = getRole();
+    const visibleItems = navItems.filter(item => !item.adminOnly || role === "admin");
 
     const handleLogout = () => {
         logout();
@@ -232,7 +214,7 @@ export function MobileSidebar() {
 
             {/* Nav */}
             <nav className="flex-1 space-y-1 px-3 py-4">
-                {navItems.map((item) => {
+                {visibleItems.map((item) => {
                     const isActive =
                         item.href === "/"
                             ? pathname === "/"
