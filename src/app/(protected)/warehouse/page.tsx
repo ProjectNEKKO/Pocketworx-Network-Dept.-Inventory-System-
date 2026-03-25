@@ -23,15 +23,15 @@ import {
 
 const initialLocations = [
     { name: "PWX IoT Hub", zone: "PWX Office", bins: 150, utilization: 75, status: "Active" },
-    { name: "Genis", zone: "Pasig", bins: 80, utilization: 45, status: "Active" },
+    { name: "Jenny's", zone: "Pasig", bins: 80, utilization: 45, status: "Active" },
 ];
 
 const mockComponents = [
     { name: "Antenna Sectoral 18dBi", category: "Antenna", stock: 12, location: "PWX IoT Hub" },
     { name: "Gateway 915 Indoor", category: "Gateway", stock: 5, location: "PWX IoT Hub" },
     { name: "Lora Module SX1276", category: "Module", stock: 45, location: "PWX IoT Hub" },
-    { name: "RG316 Bulk Head", category: "Cable", stock: 40, location: "Genis" },
-    { name: "N-Type Connector", category: "Connector", stock: 120, location: "Genis" },
+    { name: "RG316 Bulk Head", category: "Cable", stock: 40, location: "Jenny's" },
+    { name: "N-Type Connector", category: "Connector", stock: 120, location: "Jenny's" },
 ];
 
 export default function WarehousePage() {

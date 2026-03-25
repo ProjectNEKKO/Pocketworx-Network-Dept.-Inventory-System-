@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useClientRole } from "@/lib/use-client-role";
 
 import {
     Card,
@@ -11,6 +12,14 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
     Radio,
     Cpu,
@@ -23,6 +32,8 @@ import {
     PlusCircle,
     ChevronRight,
     AlertTriangle,
+    Upload,
+    Bell,
 } from "lucide-react";
 import {
     Dialog,
@@ -43,50 +54,58 @@ import {
     Cell,
 } from "recharts";
 
-const stats = [
+const statsData = [
     {
         label: "Registered Gateways",
         value: "10",
-        change: "Active devices",
         icon: Radio,
-        color: "from-blue-500 to-sky-400",
-        shadow: "shadow-blue-500/20",
         href: "/gateways",
+        data: [
+            { name: "PWX IoT Hub", value: 6, color: "#3b82f6" },
+            { name: "Jenny's", value: 4, color: "#93c5fd" },
+        ]
     },
     {
         label: "Components",
         value: "40",
-        change: "In inventory",
         icon: Cpu,
-        color: "from-violet-500 to-purple-400",
-        shadow: "shadow-violet-500/20",
         href: "/components",
+        data: [
+            { name: "Hardware", value: 15, color: "#8b5cf6" },
+            { name: "Networking", value: 10, color: "#c4b5fd" },
+            { name: "Enclosure", value: 10, color: "#a78bfa" },
+            { name: "Accessories", value: 5, color: "#ede9fe" },
+        ]
     },
     {
         label: "Total BOMs",
         value: "5",
-        change: "3 active",
         icon: FileStack,
-        color: "from-amber-500 to-orange-400",
-        shadow: "shadow-amber-500/20",
         href: "/bom",
+        data: [
+            { name: "Active", value: 3, color: "#f59e0b" },
+            { name: "Draft", value: 2, color: "#fde68a" },
+        ]
     },
     {
         label: "Critical Alerts",
         value: "6",
-        change: "Low stock items",
         icon: AlertTriangle,
-        color: "from-red-500 to-rose-400",
-        shadow: "shadow-red-500/20",
+        data: [
+            { name: "Hardware", value: 2, color: "#ef4444" },
+            { name: "Accessories", value: 2, color: "#fca5a5" },
+            { name: "Enclosure", value: 1, color: "#f87171" },
+            { name: "Networking", value: 1, color: "#fee2e2" },
+        ]
     },
 ];
 
 const criticalComponents = [
     { name: "Enclosure Dimension 168X149 mm", sku: "DIM-168-149", stock: 10, min: 50, warehouse: "PWX IoT Hub", category: "Enclosure", status: "Critical" },
     { name: "2 hole C Clamp 1-1/2' RGD", sku: "HW-CCLAMP-15", stock: 5, min: 100, warehouse: "PWX IoT Hub", category: "Accessories", status: "Critical" },
-    { name: "Outlet 4- Gang (For Extension)", sku: "ELEC-OUT-4G", stock: 8, min: 100, warehouse: "Genis", category: "Accessories", status: "Critical" },
+    { name: "Outlet 4- Gang (For Extension)", sku: "ELEC-OUT-4G", stock: 8, min: 100, warehouse: "Jenny's", category: "Accessories", status: "Critical" },
     { name: "Tofu Heatsink (White)", sku: "HS-TOFU-WHT", stock: 2, min: 100, warehouse: "PWX IoT Hub", category: "Hardware", status: "Critical" },
-    { name: "M5 Bolts and Nuts", sku: "HW-M5-BN", stock: 10, min: 300, warehouse: "Genis", category: "Hardware", status: "Critical" },
+    { name: "M5 Bolts and Nuts", sku: "HW-M5-BN", stock: 10, min: 300, warehouse: "Jenny's", category: "Hardware", status: "Critical" },
     { name: "CAT5e Cable", sku: "CBL-CAT5E", stock: 15, min: 200, warehouse: "PWX IoT Hub", category: "Networking", status: "Critical" }
 ];
 
@@ -117,23 +136,24 @@ const chartData = {
     ],
 };
 
-const donutData = [
-    { name: "Components",  value: 40, color: "#8b5cf6" },
-    { name: "Gateways",    value: 10,  color: "#3b82f6" },
-    { name: "Active BOMs", value: 3,   color: "#f59e0b" },
-    { name: "Critical Alerts", value: 6, color: "#ef4444" },
+
+const notificationsList = [
+    { id: 1, title: "Low Stock Alert", desc: "DIM-168-149 is running critically low (10 left).", time: "10m ago", unread: true },
+    { id: 2, title: "New Gateway", desc: "Gateway 915 Outdoor has been registered.", time: "1h ago", unread: true },
+    { id: 3, title: "BOM Approved", desc: "PWX Gateway v3.3 Rev A was approved.", time: "2h ago", unread: false },
+    { id: 4, title: "Location Added", desc: "PWX IoT Hub — Zone B was added.", time: "1d ago", unread: false },
 ];
-const donutTotal = donutData.reduce((s, d) => s + d.value, 0);
+
 
 const recentActivity = [
-    { icon: PackagePlus, color: "bg-violet-100 text-violet-600",  action: "Component Added",      detail: "915Mhz Lora Antenna 3.8dBi × 10",          time: "2 min ago" },
-    { icon: Radio,       color: "bg-blue-100 text-blue-600",      action: "Gateway Registered",   detail: "Gateway 915 Outdoor — PWX IoT Hub",       time: "18 min ago" },
-    { icon: RefreshCw,   color: "bg-amber-100 text-amber-600",    action: "Stock Updated",        detail: "CAT5e Cable: 120 → 145 pcs",              time: "1 hr ago" },
-    { icon: FileStack,   color: "bg-orange-100 text-orange-600",  action: "BOM Created",          detail: "PWX Gateway v3.3 — Rev A",               time: "3 hrs ago" },
-    { icon: PackagePlus, color: "bg-violet-100 text-violet-600",  action: "Component Added",      detail: "M5 Bolts and Nuts × 200",                time: "5 hrs ago" },
-    { icon: RefreshCw,   color: "bg-emerald-100 text-emerald-600",action: "Stock Updated",        detail: "PoE Adaptor 24v: 40 → 55 pcs",           time: "Yesterday" },
-    { icon: Radio,       color: "bg-blue-100 text-blue-600",      action: "Gateway Registered",   detail: "Femto Outdoor — Genis",                  time: "Yesterday" },
-    { icon: PlusCircle,  color: "bg-emerald-100 text-emerald-600",action: "Location Added",       detail: "PWX IoT Hub — Zone B (12 bins)",         time: "2 days ago" },
+    { icon: PackagePlus, color: "bg-violet-100 text-violet-600",  action: "Component Added",      detail: "915Mhz Lora Antenna 3.8dBi × 10",          time: "2 min ago", user: "John Doe" },
+    { icon: Radio,       color: "bg-blue-100 text-blue-600",      action: "Gateway Registered",   detail: "Gateway 915 Outdoor — PWX IoT Hub",       time: "18 min ago", user: "Admin Setup" },
+    { icon: RefreshCw,   color: "bg-amber-100 text-amber-600",    action: "Stock Updated",        detail: "CAT5e Cable: 120 → 145 pcs",              time: "1 hr ago", user: "Jane Smith" },
+    { icon: FileStack,   color: "bg-orange-100 text-orange-600",  action: "BOM Created",          detail: "PWX Gateway v3.3 — Rev A",               time: "3 hrs ago", user: "Admin Setup" },
+    { icon: PackagePlus, color: "bg-violet-100 text-violet-600",  action: "Component Added",      detail: "M5 Bolts and Nuts × 200",                time: "5 hrs ago", user: "John Doe" },
+    { icon: RefreshCw,   color: "bg-emerald-100 text-emerald-600",action: "Stock Updated",        detail: "PoE Adaptor 24v: 40 → 55 pcs",           time: "Yesterday", user: "Jane Smith" },
+    { icon: Radio,       color: "bg-blue-100 text-blue-600",      action: "Gateway Registered",   detail: "Femto Outdoor — Jenny's",                  time: "Yesterday", user: "Admin Setup" },
+    { icon: PlusCircle,  color: "bg-emerald-100 text-emerald-600",action: "Location Added",       detail: "PWX IoT Hub — Zone B (12 bins)",         time: "2 days ago", user: "John Doe" },
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -148,7 +168,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                                 <div className="flex items-center gap-2">
                                     <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
                                     <span className="text-[11px] font-medium text-white/90">
-                                        {entry.name === "w1" ? "PWX IoT Hub" : "Genis"}
+                                        {entry.name === "w1" ? "PWX IoT Hub" : "Jenny's"}
                                     </span>
                                 </div>
                                 <span className="text-xs font-bold text-white">
@@ -166,6 +186,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function DashboardPage() {
+    const { role } = useClientRole();
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isCriticalAlertsOpen, setIsCriticalAlertsOpen] = useState(false);
     const [period, setPeriod] = useState<keyof typeof chartData>("This Year");
@@ -174,40 +195,124 @@ export default function DashboardPage() {
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
-                    Dashboard
-                </h1>
-                <p className="mt-1 text-neutral-500">
-                    Overview of your inventory system
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
+                        Dashboard
+                    </h1>
+                    <p className="mt-1 text-neutral-500">
+                        Overview of your inventory system
+                    </p>
+                </div>
+                <div className="shrink-0 flex items-center gap-2 sm:gap-3">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="relative p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors outline-none cursor-pointer select-none">
+                                <Bell className="h-5 w-5" />
+                                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[320px] p-2 bg-white rounded-xl shadow-xl border-neutral-100 z-50">
+                            <div className="flex items-center justify-between px-2 py-1.5">
+                                <DropdownMenuLabel className="font-semibold text-neutral-900 text-base p-0">Notifications</DropdownMenuLabel>
+                                <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md cursor-pointer hover:bg-amber-100">Mark all read</span>
+                            </div>
+                            <DropdownMenuSeparator className="bg-neutral-100 my-1" />
+                            <div className="max-h-[300px] overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'thin' }}>
+                                {notificationsList.map(n => (
+                                    <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-1 p-3 cursor-pointer outline-none rounded-lg transition-colors hover:bg-neutral-50 focus:bg-neutral-50">
+                                        <div className="flex items-center justify-between w-full">
+                                            <span className={`text-sm font-semibold flex items-center gap-1.5 ${n.unread ? 'text-neutral-900' : 'text-neutral-600'}`}>
+                                                {n.unread && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />}
+                                                {n.title}
+                                            </span>
+                                            <span className="text-[10px] text-neutral-400 font-medium shrink-0">{n.time}</span>
+                                        </div>
+                                        <span className="text-xs text-neutral-500 leading-tight block w-full truncate">{n.desc}</span>
+                                    </DropdownMenuItem>
+                                ))}
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {role === "admin" && (
+                        <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-neutral-900 text-neutral-50 hover:bg-neutral-900/90 h-10 px-4 py-2 cursor-pointer shadow-sm">
+                            <Upload className="h-4 w-4 shrink-0" />
+                            <span className="hidden sm:inline">Import Excel</span>
+                            <span className="sm:hidden">Import</span>
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls"
+                                className="hidden"
+                                onChange={(e) => {
+                                    if (e.target.files && e.target.files.length > 0) {
+                                        console.log("Excel file selected:", e.target.files[0].name);
+                                        // Reset value to allow selecting the same file again
+                                        e.target.value = "";
+                                    }
+                                }}
+                            />
+                        </label>
+                    )}
+                </div>
             </div>
 
             {/* Stats Grid */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => {
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {statsData.map((stat) => {
                     const CardComponent = (
-                        <Card className="border-neutral-200 bg-white shadow-sm transition-all hover:border-neutral-300 hover:shadow-md cursor-pointer hover:-translate-y-0.5 h-full">
-                            <CardContent className="p-5">
-                                <div className="flex items-start justify-between">
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-medium uppercase tracking-wider text-neutral-500 text-left">
-                                            {stat.label}
-                                        </p>
-                                        <p className="text-2xl font-bold text-neutral-900 text-left">{stat.value}</p>
+                        <Card className="border-neutral-200 bg-white shadow-sm transition-all hover:border-neutral-300 hover:shadow-md cursor-pointer hover:-translate-y-0.5 h-full flex flex-col overflow-hidden">
+                            <CardContent className="p-4 flex flex-col h-full">
+                                {/* Header: Title and total */}
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex flex-col">
+                                        <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">{stat.label}</p>
+                                        <span className="text-2xl font-extrabold text-neutral-900 leading-none">{stat.value}</span>
                                     </div>
-                                    <div
-                                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} ${stat.shadow} shadow-sm`}
-                                    >
-                                        <stat.icon className="h-5 w-5 text-white" />
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100/80 shrink-0">
+                                        <stat.icon className="h-4 w-4 text-neutral-500" />
                                     </div>
                                 </div>
-                                <div className="mt-3 flex items-center gap-1.5">
-                                    <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
-                                    <span className="text-xs font-medium text-emerald-400">
-                                        {stat.change}
-                                    </span>
-                                    <span className="text-xs text-neutral-500">this week</span>
+
+                                {/* Chart + Legend Row */}
+                                <div className="flex items-center gap-4 mt-auto">
+                                    {/* Donut */}
+                                    <div className="relative h-[70px] w-[70px] shrink-0">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={stat.data}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    innerRadius={24}
+                                                    outerRadius={35}
+                                                    paddingAngle={2}
+                                                    dataKey="value"
+                                                    strokeWidth={0}
+                                                >
+                                                    {stat.data.map((entry, index) => (
+                                                        <Cell key={index} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                    
+                                    {/* Legend */}
+                                    <div className="flex flex-col justify-center gap-1.5 flex-1 min-w-0 py-1 border-l border-neutral-100 pl-4">
+                                        {stat.data.map((d) => (
+                                            <div key={d.name} className="flex items-center justify-between gap-1.5">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span 
+                                                        className="h-1.5 w-1.5 rounded-full shrink-0" 
+                                                        style={{ backgroundColor: d.color }} 
+                                                    />
+                                                    <span className="text-[10px] font-medium text-neutral-500 truncate leading-tight">{d.name}</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-neutral-900 shrink-0">{d.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -222,7 +327,7 @@ export default function DashboardPage() {
                     }
 
                     return (
-                        <Link key={stat.label} href={stat.href} className="block w-full h-full outline-none">
+                        <Link key={stat.label} href={stat.href!} className="block w-full h-full outline-none">
                             {CardComponent}
                         </Link>
                     );
@@ -230,13 +335,13 @@ export default function DashboardPage() {
             </div>
 
             {/* Content Grid */}
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 lg:grid-cols-1">
                 {/* Gateway Components Analytics */}
-                <Card className="border-neutral-200 bg-white shadow-sm lg:col-span-2 overflow-hidden">
+                <Card className="border-neutral-200 bg-white shadow-sm overflow-hidden">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7 px-6 pt-6">
                         <div>
                             <CardTitle className="text-xl font-bold text-neutral-900">Gateway Location</CardTitle>
-                            <CardDescription className="text-neutral-500 mt-1">PWX IoT Hub and Genis</CardDescription>
+                            <CardDescription className="text-neutral-500 mt-1">PWX IoT Hub and Jenny's</CardDescription>
                         </div>
                         <div className="flex items-center gap-1 rounded-full bg-neutral-50 p-1 border border-neutral-100">
                             {(Object.keys(chartData) as Array<keyof typeof chartData>).map((p) => (
@@ -347,63 +452,7 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                {/* Inventory Breakdown Donut Chart */}
-                <Card className="border-neutral-200 bg-white shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-neutral-900">Inventory Breakdown</CardTitle>
-                        <CardDescription className="text-neutral-500">
-                            Distribution across all categories
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center gap-4 pb-6">
-                        {/* Donut chart */}
-                        <div className="relative">
-                            <ResponsiveContainer width={220} height={220}>
-                                <PieChart>
-                                    <Pie
-                                        data={donutData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={68}
-                                        outerRadius={100}
-                                        paddingAngle={3}
-                                        dataKey="value"
-                                        strokeWidth={0}
-                                    >
-                                        {donutData.map((entry, index) => (
-                                            <Cell key={index} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                </PieChart>
-                            </ResponsiveContainer>
-                            {/* Centre label */}
-                            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                                <span className="text-2xl font-extrabold text-neutral-900">
-                                    {donutTotal.toLocaleString()}
-                                </span>
-                                <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 mt-0.5">
-                                    Total Items
-                                </span>
-                            </div>
-                        </div>
 
-                        {/* Legend */}
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-2.5 w-full px-2">
-                            {donutData.map((d) => (
-                                <div key={d.name} className="flex items-center gap-2">
-                                    <span
-                                        className="h-2.5 w-2.5 rounded-full shrink-0"
-                                        style={{ backgroundColor: d.color }}
-                                    />
-                                    <div className="min-w-0">
-                                        <p className="text-[11px] font-medium text-neutral-500 truncate">{d.name}</p>
-                                        <p className="text-sm font-bold text-neutral-900">{d.value.toLocaleString()}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
 
             {/* Recent Activity */}
@@ -434,7 +483,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-neutral-900">{item.action}</p>
-                                    <p className="text-xs text-neutral-500 truncate">{item.detail}</p>
+                                    <p className="text-xs text-neutral-500 truncate mt-0.5"><span className="font-semibold text-neutral-700">{item.user}</span> &bull; {item.detail}</p>
                                 </div>
                                 <span className="text-xs text-neutral-400 shrink-0 font-medium">{item.time}</span>
                             </div>
@@ -464,8 +513,11 @@ export default function DashboardPage() {
                                         <item.icon className="h-5 w-5" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-base font-semibold text-neutral-900 mb-0.5">{item.action}</p>
-                                        <p className="text-sm text-neutral-500 truncate">{item.detail}</p>
+                                        <p className="text-base font-semibold text-neutral-900 mb-1">{item.action}</p>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-bold px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded-md shrink-0 uppercase tracking-wide">{item.user}</span>
+                                            <p className="text-sm text-neutral-500 truncate">{item.detail}</p>
+                                        </div>
                                     </div>
                                     <span className="text-sm text-neutral-400 shrink-0 font-medium whitespace-nowrap ml-4 bg-neutral-100/50 px-2.5 py-1 rounded-full">{item.time}</span>
                                 </div>
@@ -489,7 +541,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-base font-semibold text-neutral-900 mb-0.5">Gateway Registered</p>
-                                    <p className="text-sm text-neutral-500 truncate">Gateway 915 Indoor — Genis</p>
+                                    <p className="text-sm text-neutral-500 truncate">Gateway 915 Indoor — Jenny's</p>
                                 </div>
                                 <span className="text-sm text-neutral-400 shrink-0 font-medium whitespace-nowrap ml-4 bg-neutral-100/50 px-2.5 py-1 rounded-full">Last week</span>
                             </div>
