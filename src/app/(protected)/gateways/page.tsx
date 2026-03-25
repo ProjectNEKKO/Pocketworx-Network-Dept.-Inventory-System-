@@ -37,11 +37,11 @@ const initialGateways: GatewayItem[] = [
     { id: "Gateway 868 Indoor", sku: "GW-868-IA", location: "PWX IoT Hub", quantity: 5 },
     { id: "Femto Outdoor", sku: "GW-FM-OA", location: "PWX IoT Hub", quantity: 3 },
     // Secondary Warehouse
-    { id: "Gateway 915 Outdoor", sku: "GW-915-OB", location: "Genis", quantity: 2 },
-    { id: "Gateway 868 Outdoor", sku: "GW-868-OB", location: "Genis", quantity: 1 },
-    { id: "Gateway 915 Indoor", sku: "GW-915-IB", location: "Genis", quantity: 3 },
-    { id: "Gateway 868 Indoor", sku: "GW-868-IB", location: "Genis", quantity: 2 },
-    { id: "Femto Outdoor", sku: "GW-FM-OB", location: "Genis", quantity: 1 },
+    { id: "Gateway 915 Outdoor", sku: "GW-915-OB", location: "Jenny's", quantity: 2 },
+    { id: "Gateway 868 Outdoor", sku: "GW-868-OB", location: "Jenny's", quantity: 1 },
+    { id: "Gateway 915 Indoor", sku: "GW-915-IB", location: "Jenny's", quantity: 3 },
+    { id: "Gateway 868 Indoor", sku: "GW-868-IB", location: "Jenny's", quantity: 2 },
+    { id: "Femto Outdoor", sku: "GW-FM-OB", location: "Jenny's", quantity: 1 },
 ];
 
 function GatewayDetailDialog({
@@ -284,7 +284,7 @@ export default function GatewaysPage() {
                     <SelectContent className="bg-white border-neutral-200 text-neutral-900 z-50">
                         <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Warehouses</SelectItem>
                         <SelectItem value="PWX IoT Hub" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">PWX IoT Hub</SelectItem>
-                        <SelectItem value="Genis" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Genis</SelectItem>
+                        <SelectItem value="Jenny's" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Jenny&apos;s</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

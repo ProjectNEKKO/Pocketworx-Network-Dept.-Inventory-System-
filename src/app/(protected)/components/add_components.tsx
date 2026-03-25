@@ -287,7 +287,7 @@ export function AddComponentsDialog({
                       </FormControl>
                       <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
                         <SelectItem value="PWX IoT Hub">PWX IoT Hub</SelectItem>
-                        <SelectItem value="Genis">Genis</SelectItem>
+                        <SelectItem value="Jenny's">Jenny&apos;s</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
