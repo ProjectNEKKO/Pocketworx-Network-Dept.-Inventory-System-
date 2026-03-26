@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 
 const navItems = [
-    { label: "Dashboard", href: "/", icon: LayoutDashboard },
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Gateways", href: "/gateways", icon: Radio },
     { label: "Components", href: "/components", icon: Cpu },
     { label: "Bill of Materials", href: "/bom", icon: FileStack },
@@ -43,7 +43,7 @@ const navItems = [
 ] as const;
 
 function isNavItemActive(pathname: string, href: string): boolean {
-    if (href === "/") return pathname === "/";
+    if (href === "/dashboard") return pathname === "/dashboard";
     if (href === "/bom/archived") return pathname.startsWith("/bom/archived");
     if (href === "/bom") {
         return (

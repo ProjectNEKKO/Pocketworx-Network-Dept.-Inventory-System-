@@ -46,7 +46,7 @@ export default function LoginPage() {
                 localStorage.setItem("pwx_remember_me", "true");
             }
 
-            router.push("/");
+            router.push("/dashboard");
         } catch (error: unknown) {
             setError("root", {
                 type: "manual",

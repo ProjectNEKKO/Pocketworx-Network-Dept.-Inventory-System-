@@ -423,8 +423,22 @@ export default function DashboardPage() {
                                     onChange={async (e) => {
                                         if (e.target.files && e.target.files.length > 0) {
                                             const file = e.target.files[0];
-                                            const result = await processExcelImport(file);
+                                            
+                                            const currentComponents = loadComponentCatalog(COMPONENT_CATALOG_SEED);
+                                            const currentGateways = loadGwCatalog();
+                                            const componentSkus = new Set(currentComponents.map(c => c.sku.toLowerCase()));
+                                            const gatewaySkus = new Set(currentGateways.map(g => g.sku.toLowerCase()));
+
+                                            const result = await processExcelImport(file, componentSkus, gatewaySkus);
+                                            
                                             if (result.success) {
+                                                if (result.newComponents && result.newComponents.length > 0) {
+                                                    saveComponentCatalog([...currentComponents, ...result.newComponents]);
+                                                }
+                                                if (result.newGateways && result.newGateways.length > 0) {
+                                                    saveGwCatalog([...currentGateways, ...result.newGateways]);
+                                                }
+                                                
                                                 toast.success(`Imported successfully!`, {
                                                     description: `${result.componentsAdded} components and ${result.gatewaysAdded} gateways added.`,
                                                 });
