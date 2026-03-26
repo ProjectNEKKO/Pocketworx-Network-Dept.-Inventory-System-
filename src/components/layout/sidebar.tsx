@@ -31,7 +31,6 @@ const navItems = [
     { label: "Gateways", href: "/gateways", icon: Radio },
     { label: "Components", href: "/components", icon: Cpu },
     { label: "Bill of Materials", href: "/bom", icon: FileStack },
-    { label: "Archived BOMs", href: "/bom/archived", icon: Archive },
     { label: "Warehouse", href: "/warehouse", icon: Warehouse },
     {
         label: "User Management",
@@ -44,13 +43,7 @@ const navItems = [
 
 function isNavItemActive(pathname: string, href: string): boolean {
     if (href === "/") return pathname === "/";
-    if (href === "/bom/archived") return pathname.startsWith("/bom/archived");
-    if (href === "/bom") {
-        return (
-            pathname === "/bom" ||
-            (pathname.startsWith("/bom/") && !pathname.startsWith("/bom/archived"))
-        );
-    }
+    if (href === "/bom") return pathname.startsWith("/bom");
     return pathname.startsWith(href);
 }
 

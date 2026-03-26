@@ -45,7 +45,7 @@ export function CatalogPickerDialog({
         >
             <DialogContent className="flex max-h-[min(80vh,520px)] flex-col gap-0 p-0 text-black sm:max-w-md">
                 <DialogHeader className="shrink-0 border-b border-neutral-100 p-4 pb-3">
-                    <DialogTitle>Pick from catalog</DialogTitle>
+                    <DialogTitle>Pick from Catalog</DialogTitle>
                     <p className="text-left text-xs font-normal text-neutral-500">
                         Inventory components (Components page). You can still
                         type ad-hoc part numbers in the grid.

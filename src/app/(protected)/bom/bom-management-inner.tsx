@@ -94,14 +94,18 @@ export function BOMManagementInner({
     const [allBOMs, setAllBOMs] = useState<BOMEntry[]>(defaultBOMs);
     const [deleteTarget, setDeleteTarget] = useState<BOMEntry | null>(null);
 
-    const basePath = variant === "main" ? "/bom" : "/bom/archived";
+    const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set(variant === "main" ? ["Active", "Draft"] : ["Archived"]));
+    const [phaseFilter, setPhaseFilter] = useState<Set<string>>(new Set());
+
+    const basePath = "/bom";
 
     const visibleBOMs = useMemo(() => {
-        if (variant === "main") {
-            return allBOMs.filter((b) => b.status !== "Archived");
-        }
-        return allBOMs.filter((b) => b.status === "Archived");
-    }, [allBOMs, variant]);
+        return allBOMs.filter((b) => {
+            const matchesStatus = statusFilter.size === 0 || statusFilter.has(b.status);
+            const matchesPhase = phaseFilter.size === 0 || (b.phase && phaseFilter.has(b.phase));
+            return matchesStatus && matchesPhase;
+        });
+    }, [allBOMs, statusFilter, phaseFilter]);
 
     const archivedCount = useMemo(
         () => allBOMs.filter((b) => b.status === "Archived").length,
@@ -243,39 +247,12 @@ export function BOMManagementInner({
             {/* Header */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    {variant === "archived" ? (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="-ml-2 mb-2 h-8 text-neutral-600 hover:text-neutral-900"
-                            asChild
-                        >
-                            <Link href="/bom">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to active BOMs
-                            </Link>
-                        </Button>
-                    ) : null}
                     <h1 className="text-3xl font-bold tracking-tight text-neutral-900">
-                        {variant === "main"
-                            ? "Bill of Materials"
-                            : "Archived BOMs"}
+                        Bill of Materials
                     </h1>
                     <p className="mt-1 text-neutral-500">
-                        {variant === "main"
-                            ? "Manage active and draft BOMs. Archived revisions live in a separate list."
-                            : "Read-only archive of BOMs marked archived. Unarchive to return them to the main list."}
+                        Manage active and draft BOMs. Use filters to view archived revisions.
                     </p>
-                    {variant === "main" && archivedCount > 0 ? (
-                        <p className="mt-2">
-                            <Link
-                                href="/bom/archived"
-                                className="text-sm font-medium text-amber-700 underline-offset-2 hover:text-amber-800 hover:underline"
-                            >
-                                Archived BOMs ({archivedCount})
-                            </Link>
-                        </p>
-                    ) : null}
                 </div>
                 {variant === "main" ? (
                     <Link href="/bom/create">
@@ -297,10 +274,48 @@ export function BOMManagementInner({
                             className="border-neutral-200 bg-white pl-9 text-neutral-900 placeholder:text-neutral-500"
                         />
                     </div>
-                    <Button variant="outline" className="border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
-                        <Filter className="mr-2 h-4 w-4" />
-                        Filter
-                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" className="border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900">
+                                <Filter className="mr-2 h-4 w-4" />
+                                Filter {(statusFilter.size > 0 || phaseFilter.size > 0) ? " (Active)" : ""}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[200px] p-2">
+                            <DropdownMenuLabel className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Status</DropdownMenuLabel>
+                            {["Active", "Draft", "Archived"].map((st) => (
+                                <div key={st} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-neutral-50 rounded-sm cursor-pointer" onClick={() => {
+                                    setStatusFilter(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(st)) next.delete(st);
+                                        else next.add(st);
+                                        return next;
+                                    });
+                                }}>
+                                    <input type="checkbox" checked={statusFilter.has(st)} readOnly className="pointer-events-none rounded border-neutral-300 text-amber-600 focus:ring-amber-500" />
+                                    <span className="text-sm font-medium text-neutral-700">{st}</span>
+                                </div>
+                            ))}
+                            <DropdownMenuSeparator className="my-2" />
+                            <DropdownMenuLabel className="text-xs text-neutral-500 uppercase tracking-wider mb-1">Phase</DropdownMenuLabel>
+                            {["Prototype", "Pre-Production", "Production", "End of Life"].map((ph) => (
+                                <div key={ph} className="flex items-center space-x-2 px-2 py-1.5 hover:bg-neutral-50 rounded-sm cursor-pointer" onClick={() => {
+                                    setPhaseFilter(prev => {
+                                        const next = new Set(prev);
+                                        if (next.has(ph)) next.delete(ph);
+                                        else next.add(ph);
+                                        return next;
+                                    });
+                                }}>
+                                    <input type="checkbox" checked={phaseFilter.has(ph)} readOnly className="pointer-events-none rounded border-neutral-300 text-amber-600 focus:ring-amber-500" />
+                                    <span className="text-sm font-medium text-neutral-700">{ph}</span>
+                                </div>
+                            ))}
+                            <div className="mt-2 pt-2 border-t border-neutral-100 flex justify-end">
+                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setStatusFilter(new Set()); setPhaseFilter(new Set()); }}>Clear all</Button>
+                            </div>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
                 {/* View Toggle */}
                 <div className="flex items-center rounded-md border border-neutral-200 bg-white p-1 shadow-sm">
@@ -329,14 +344,10 @@ export function BOMManagementInner({
                 <div className="rounded-2xl border border-dashed border-neutral-200 bg-neutral-50/50 px-6 py-16 text-center">
                     <FileStack className="mx-auto mb-3 h-10 w-10 text-neutral-300" />
                     <p className="text-sm font-medium text-neutral-700">
-                        {variant === "main"
-                            ? "No active BOMs yet"
-                            : "No archived BOMs"}
+                        No BOMs found
                     </p>
                     <p className="mx-auto mt-2 max-w-md text-xs text-neutral-500">
-                        {variant === "main"
-                            ? "Create a BOM or unarchive one from the archived list."
-                            : "Archive a BOM from the main list to see it here."}
+                        Try adjusting your search or filter settings, or create a new BOM.
                     </p>
                     {variant === "main" ? (
                         <Button
@@ -399,8 +410,8 @@ export function BOMManagementInner({
                                             <p className="font-medium text-neutral-900">{bom.components}</p>
                                         </div>
                                         <div>
-                                            <p className="text-neutral-500 text-xs mb-1">Author</p>
-                                            <p className="font-medium text-neutral-900 truncate">{bom.author}</p>
+                                            <p className="text-neutral-500 text-xs mb-1">Phase</p>
+                                            <p className="font-medium text-neutral-900 truncate">{bom.phase || "—"}</p>
                                         </div>
                                         <div>
                                             <p className="text-neutral-500 text-xs mb-1">Last Modified</p>
@@ -422,6 +433,7 @@ export function BOMManagementInner({
                                         <TableHead>Revision</TableHead>
                                         <TableHead>Components</TableHead>
                                         <TableHead>Status</TableHead>
+                                        <TableHead>Phase</TableHead>
                                         <TableHead>Last Modified</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
@@ -446,6 +458,9 @@ export function BOMManagementInner({
                                                 <Badge variant="secondary" className={getStatusBadgeVariant(bom.status)}>
                                                     {bom.status}
                                                 </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-neutral-600">
+                                                {bom.phase || "—"}
                                             </TableCell>
                                             <TableCell className="text-neutral-600">
                                                 <p className="text-sm">{bom.lastModified}</p>

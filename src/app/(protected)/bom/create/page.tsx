@@ -62,9 +62,9 @@ interface ComponentRow {
     level: number;
     partNumber: string;
     description: string;
-    qpa: number;
+    qpa: number | "";
     uom: string;
-    unitCost: number;
+    unitCost: number | "";
     manufacturer: string;
     mpn: string;
     refDesignator: string;
@@ -106,7 +106,7 @@ function normalizeLoadedRow(r: StoredComponentRow, index: number): ComponentRow 
     };
 }
 
-const UOM_OPTIONS = ["Each", "Meters", "Feet", "Grams", "Kilograms", "Liters", "Milliliters", "Sets", "Rolls", "Boxes"];
+const UOM_OPTIONS = ["Piece", "Set", "Meter", "Centimeter", "Millimeter", "Kilogram", "Gram", "Liter", "Milliliter", "Roll", "Box", "Panel"];
 const PHASE_OPTIONS = ["Prototype", "Pre-Production", "Production", "End of Life"];
 
 // ─── Main Page ───────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ function CreateBOMPageInner() {
     const [cpn, setCpn] = useState("");
     const [revision, setRevision] = useState("Rev A");
     const [phase, setPhase] = useState("Prototype");
-    const [assemblyUom, setAssemblyUom] = useState("Each");
+    // Removed Assembly UOM
     const [targetQty, setTargetQty] = useState<number | "">(1);
     const [description, setDescription] = useState("");
 
@@ -155,7 +155,7 @@ function CreateBOMPageInner() {
                     setCpn(String(bom.cpn ?? ""));
                     setRevision(String(bom.revision ?? "Rev A"));
                     setPhase(String(bom.phase ?? "Prototype"));
-                    setAssemblyUom(String(bom.assemblyUom ?? "Each"));
+                    // Removed Assembly UOM Hydration
                     if (typeof bom.targetQty === "number") {
                         setTargetQty(bom.targetQty);
                     } else {
@@ -190,7 +190,7 @@ function CreateBOMPageInner() {
         setCpn(entry.cpn ?? "");
         setRevision(entry.revision);
         setPhase(entry.phase ?? "Prototype");
-        setAssemblyUom(entry.assemblyUom ?? "Each");
+        // Removed Assembly UOM Hydration
         setTargetQty(entry.targetQty ?? 1);
         setDescription(entry.description ?? "");
         const rows = entry.componentRows ?? [];
@@ -210,7 +210,11 @@ function CreateBOMPageInner() {
 
     const totalBomCost = useMemo(
         () =>
-            validComponents.reduce((sum, c) => sum + c.qpa * c.unitCost, 0),
+            validComponents.reduce((sum, c) => {
+                const q = typeof c.qpa === "number" ? c.qpa : 0;
+                const cost = typeof c.unitCost === "number" ? c.unitCost : 0;
+                return sum + q * cost;
+            }, 0),
         [validComponents]
     );
 
@@ -264,7 +268,11 @@ function CreateBOMPageInner() {
                 if (!ok) return;
             }
             const rolledUpCost = filteredComponents.reduce(
-                (sum, c) => sum + c.qpa * c.unitCost,
+                (sum, c) => {
+                    const q = typeof c.qpa === "number" ? c.qpa : 0;
+                    const cost = typeof c.unitCost === "number" ? c.unitCost : 0;
+                    return sum + q * cost;
+                },
                 0
             );
             const id =
@@ -275,10 +283,14 @@ function CreateBOMPageInner() {
                 cpn,
                 revision,
                 phase,
-                assemblyUom,
+                // Removed assemblyUom from save payload
                 targetQty: targetQty === "" ? 1 : targetQty,
                 description,
-                components: filteredComponents,
+                components: filteredComponents.map(c => ({
+                    ...c,
+                    qpa: typeof c.qpa === "number" ? c.qpa : 0,
+                    unitCost: typeof c.unitCost === "number" ? c.unitCost : 0,
+                })),
                 totalCost: rolledUpCost,
                 status,
                 author: "Current User",
@@ -310,7 +322,7 @@ function CreateBOMPageInner() {
             cpn,
             revision,
             phase,
-            assemblyUom,
+            // Removed assemblyUom from dependencies
             targetQty,
             description,
             components,
@@ -339,8 +351,8 @@ function CreateBOMPageInner() {
                           partNumber: item.sku,
                           description: item.name,
                           unitCost:
-                              typeof item.unitCost === "number"
-                                  ? item.unitCost
+                              typeof (item as any).unitCost === "number"
+                                  ? (item as any).unitCost
                                   : 0,
                       }
                     : c
@@ -474,7 +486,7 @@ function CreateBOMPageInner() {
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label htmlFor="cpn" className="text-sm font-medium text-neutral-700">
-                                            Part Number / SKU <span className="text-red-500">*</span>
+                                            Internal Part Number <span className="text-red-500">*</span>
                                         </Label>
                                         <Input
                                             id="cpn"
@@ -498,7 +510,7 @@ function CreateBOMPageInner() {
                                     </div>
                                 </div>
 
-                                {/* Row: Phase + Assembly UOM */}
+                                {/* Row: Phase + Target Qty */}
                                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                                     <div className="space-y-2">
                                         <Label className="text-sm font-medium text-neutral-700">
@@ -518,44 +530,25 @@ function CreateBOMPageInner() {
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-sm font-medium text-neutral-700">
-                                            Assembly UOM
+                                        <Label htmlFor="target-qty" className="text-sm font-medium text-neutral-700">
+                                            Target Build Quantity
                                         </Label>
-                                        <Select value={assemblyUom} onValueChange={setAssemblyUom}>
-                                            <SelectTrigger className="w-full border-neutral-200">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {UOM_OPTIONS.map((u) => (
-                                                    <SelectItem key={u} value={u}>
-                                                        {u}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <Input
+                                            id="target-qty"
+                                            type="number"
+                                            min={1}
+                                            placeholder="1"
+                                            value={targetQty}
+                                            onChange={(e) =>
+                                                setTargetQty(
+                                                    e.target.value === ""
+                                                        ? ""
+                                                        : Number(e.target.value)
+                                                )
+                                            }
+                                            className="border-neutral-200 focus:border-amber-400 focus:ring-amber-400/30 w-full"
+                                        />
                                     </div>
-                                </div>
-
-                                {/* Row: Target Qty */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="target-qty" className="text-sm font-medium text-neutral-700">
-                                        Target Build Quantity
-                                    </Label>
-                                    <Input
-                                        id="target-qty"
-                                        type="number"
-                                        min={1}
-                                        placeholder="1"
-                                        value={targetQty}
-                                        onChange={(e) =>
-                                            setTargetQty(
-                                                e.target.value === ""
-                                                    ? ""
-                                                    : Number(e.target.value)
-                                            )
-                                        }
-                                        className="border-neutral-200 focus:border-amber-400 focus:ring-amber-400/30 max-w-[180px]"
-                                    />
                                 </div>
 
                                 {/* Row: Description */}
@@ -667,7 +660,7 @@ function CreateBOMPageInner() {
                                                 Lvl
                                             </TableHead>
                                             <TableHead className="min-w-[140px]">
-                                                Part Number
+                                                SKU
                                             </TableHead>
                                             <TableHead className="min-w-[180px]">
                                                 Description
@@ -754,7 +747,7 @@ function CreateBOMPageInner() {
                                                                         .value
                                                                 )
                                                             }
-                                                            placeholder="RES-10K or SKU"
+                                                            placeholder="SKU"
                                                             className="h-8 min-w-0 flex-1 border-neutral-200 text-xs"
                                                         />
                                                     </div>
@@ -784,10 +777,7 @@ function CreateBOMPageInner() {
                                                             updateRow(
                                                                 row.id,
                                                                 "qpa",
-                                                                Number(
-                                                                    e.target
-                                                                        .value
-                                                                )
+                                                                e.target.value === "" ? "" : Number(e.target.value)
                                                             )
                                                         }
                                                         className="h-8 w-20 text-xs border-neutral-200 text-right"
@@ -833,10 +823,7 @@ function CreateBOMPageInner() {
                                                             updateRow(
                                                                 row.id,
                                                                 "unitCost",
-                                                                Number(
-                                                                    e.target
-                                                                        .value
-                                                                )
+                                                                e.target.value === "" ? "" : Number(e.target.value)
                                                             )
                                                         }
                                                         className="h-8 w-24 text-xs border-neutral-200 text-right"
@@ -845,7 +832,8 @@ function CreateBOMPageInner() {
                                                 {/* Total Cost (read-only) */}
                                                 <TableCell className="text-right text-xs font-medium text-neutral-700 tabular-nums">
                                                     {formatCurrency(
-                                                        row.qpa * row.unitCost
+                                                        (typeof row.qpa === "number" ? row.qpa : 0) * 
+                                                        (typeof row.unitCost === "number" ? row.unitCost : 0)
                                                     )}
                                                 </TableCell>
                                                 {/* Manufacturer */}
