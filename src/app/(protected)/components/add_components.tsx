@@ -244,7 +244,7 @@ export function AddComponentsDialog({
                         <SelectItem value="Hardware">Hardware</SelectItem>
                         <SelectItem value="Networking">Networking</SelectItem>
                         <SelectItem value="Cable">Cable</SelectItem>
-                        <SelectItem value="RF">RF</SelectItem>
+                        <SelectItem value="RF">Radio Frequency</SelectItem>
                         <SelectItem value="Electrical">Electrical</SelectItem>
                         <SelectItem value="Accessories">Accessories</SelectItem>
                       </SelectContent>

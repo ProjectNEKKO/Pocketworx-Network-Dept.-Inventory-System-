@@ -1,16 +1,13 @@
 import * as XLSX from "xlsx";
 import type { ComponentItem } from "@/app/(protected)/components/add_components";
 import type { GatewayItem } from "@/app/(protected)/gateways/add_gateways";
-import { loadComponentCatalog, saveComponentCatalog } from "./inventory-catalog";
-import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
-import { loadGwCatalog, saveGwCatalog } from "./gateway-catalog";
 
 export function downloadExcelTemplate() {
     // 1. Create a blank workbook
     const wb = XLSX.utils.book_new();
 
     // 2. Add "Components" sheet
-    const componentsHeaders = ["Name", "SKU", "Category", "Stock", "Min Stock", "Warehouse"];
+    const componentsHeaders = ["Name", "SKU", "Category", "Stock", "Critical Stock", "Warehouse"];
     const wsComponents = XLSX.utils.aoa_to_sheet([
         componentsHeaders,
         ["Example Component", "EX-COMP-01", "Hardware", 100, 20, "PWX IoT Hub"]
@@ -29,10 +26,16 @@ export function downloadExcelTemplate() {
     XLSX.writeFile(wb, "Inventory_Import_Template.xlsx");
 }
 
-export async function processExcelImport(file: File): Promise<{
+export async function processExcelImport(
+    file: File,
+    existingComponentSkus: Set<string>,
+    existingGatewaySkus: Set<string>
+): Promise<{
     success: boolean;
     componentsAdded: number;
     gatewaysAdded: number;
+    newComponents: ComponentItem[];
+    newGateways: GatewayItem[];
     error?: string;
 }> {
     try {
@@ -44,77 +47,64 @@ export async function processExcelImport(file: File): Promise<{
 
         // --- Process Components ---
         const wsComponents = wb.Sheets["Components"];
+        const newItems: ComponentItem[] = [];
         if (wsComponents) {
             const rawComponents = XLSX.utils.sheet_to_json<any>(wsComponents);
-            const currentComponents = loadComponentCatalog(COMPONENT_CATALOG_SEED);
-            
-            const existingSkus = new Set(currentComponents.map(c => c.sku.toLowerCase()));
-            const newItems: ComponentItem[] = [];
+            const trackedSkus = new Set(existingComponentSkus);
 
             for (const row of rawComponents) {
-                // Determine property mapping
                 const name = row["Name"] || row["name"];
-                const sku = row["SKU"] || row["sku"] || row["Part Number"];
+                const sku = String(row["SKU"] || row["sku"] || row["Part Number"] || "").trim();
                 const category = row["Category"] || row["category"];
                 const stock = Number(row["Stock"] || row["Current Stock"] || row["stock"] || 0);
                 const min = Number(row["Min Stock"] || row["Critical Stock"] || row["min"] || 0);
                 const warehouse = row["Warehouse"] || row["warehouse"] || "PWX IoT Hub";
 
                 if (name && sku) {
-                    if (!existingSkus.has(String(sku).toLowerCase())) {
+                    const normalizedSku = sku.toLowerCase();
+                    if (!trackedSkus.has(normalizedSku)) {
                         newItems.push({
                             name: String(name),
-                            sku: String(sku),
+                            sku: sku,
                             category: String(category || "Accessories"),
                             stock: isNaN(stock) ? 0 : stock,
                             min: isNaN(min) ? 0 : min,
                             warehouse: String(warehouse),
                         });
-                        existingSkus.add(String(sku).toLowerCase());
+                        trackedSkus.add(normalizedSku);
                     }
                 }
             }
-
-            if (newItems.length > 0) {
-                const updatedComponents = [...currentComponents, ...newItems];
-                saveComponentCatalog(updatedComponents);
-                newComponentsCount = newItems.length;
-            }
+            newComponentsCount = newItems.length;
         }
 
         // --- Process Gateways ---
         const wsGateways = wb.Sheets["Gateways"];
+        const newGateways: GatewayItem[] = [];
         if (wsGateways) {
             const rawGateways = XLSX.utils.sheet_to_json<any>(wsGateways);
-            const currentGateways = loadGwCatalog();
-            
-            const existingSkus = new Set(currentGateways.map(g => g.sku.toLowerCase()));
-            const newGateways: GatewayItem[] = [];
+            const trackedGwSkus = new Set(existingGatewaySkus);
 
             for (const row of rawGateways) {
                 const name = row["Name"] || row["name"];
-                const sku = row["SKU"] || row["sku"];
+                const sku = String(row["SKU"] || row["sku"] || "").trim();
                 const location = row["Location"] || row["location"] || row["Warehouse"] || "PWX IoT Hub";
                 const quantity = Number(row["Quantity"] || row["quantity"] || row["Qty"] || 0);
 
                 if (name && sku) {
-                    if (!existingSkus.has(String(sku).toLowerCase())) {
+                    const normalizedSku = sku.toLowerCase();
+                    if (!trackedGwSkus.has(normalizedSku)) {
                         newGateways.push({
                             id: String(name),
-                            sku: String(sku),
+                            sku: sku,
                             location: String(location),
                             quantity: isNaN(quantity) ? 0 : quantity
                         });
-                        existingSkus.add(String(sku).toLowerCase());
+                        trackedGwSkus.add(normalizedSku);
                     }
                 }
             }
-
-            if (newGateways.length > 0) {
-                const updatedGateways = [...currentGateways, ...newGateways];
-                saveGwCatalog(updatedGateways);
-                newGatewaysCount = newGateways.length;
-            }
+            newGatewaysCount = newGateways.length;
         }
 
         if (!wsComponents && !wsGateways) {
@@ -122,6 +112,8 @@ export async function processExcelImport(file: File): Promise<{
                 success: false,
                 componentsAdded: 0,
                 gatewaysAdded: 0,
+                newComponents: [],
+                newGateways: [],
                 error: "Invalid Excel format. Expected 'Components' or 'Gateways' sheets."
             };
         }
@@ -129,13 +121,17 @@ export async function processExcelImport(file: File): Promise<{
         return {
             success: true,
             componentsAdded: newComponentsCount,
-            gatewaysAdded: newGatewaysCount
+            gatewaysAdded: newGatewaysCount,
+            newComponents: newItems,
+            newGateways: newGateways
         };
     } catch (e: any) {
         return {
             success: false,
             componentsAdded: 0,
             gatewaysAdded: 0,
+            newComponents: [],
+            newGateways: [],
             error: e.message || "An error occurred while parsing the file."
         };
     }
@@ -143,7 +139,7 @@ export async function processExcelImport(file: File): Promise<{
 
 export function exportComponentsToExcel(components: ComponentItem[]) {
     const wb = XLSX.utils.book_new();
-    const headers = ["Name", "SKU", "Category", "Stock", "Min Stock", "Warehouse"];
+    const headers = ["Name", "SKU", "Category", "Stock", "Critical Stock", "Warehouse"];
     
     const rows = components.map(c => [
         c.name,
