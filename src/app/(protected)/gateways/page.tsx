@@ -26,8 +26,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useClientRole } from "@/lib/use-client-role";
-
 import { AddGatewaysDialog, GatewayItem } from "./add_gateways";
+import { addRequest } from "@/lib/stock-requests";
 
 const initialGateways: GatewayItem[] = [
     // Main Warehouse
@@ -49,14 +49,20 @@ function GatewayDetailDialog({
     open,
     onClose,
     onUpdate,
+    role,
 }: {
     gw: GatewayItem | null;
     open: boolean;
     onClose: () => void;
-    onUpdate: (id: string, newQty: number, imageUrl?: string) => void;
+    onUpdate: (id: string, newQty: number, imageUrl?: string, newName?: string) => void;
+    role: string;
 }) {
     const [inputValue, setInputValue] = useState<string>("");
+    const [nameValue, setNameValue] = useState<string>("");
     const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
+
+    const [reqQty, setReqQty] = useState<string>("1");
+    const [submitted, setSubmitted] = useState(false);
 
     const [prevGw, setPrevGw] = useState<GatewayItem | null>(null);
     const [prevOpen, setPrevOpen] = useState<boolean>(false);
@@ -66,67 +72,73 @@ function GatewayDetailDialog({
         setPrevOpen(open);
         if (gw && open) {
             setInputValue(gw.quantity.toString());
+            setNameValue(gw.id);
             setImageUrl(gw.image);
+            setReqQty("1");
+            setSubmitted(false);
         }
     }
 
     const currentQty = parseInt(inputValue, 10);
     const safeQty = isNaN(currentQty) ? 0 : Math.max(0, currentQty);
 
-    function handleIncrement() {
-        setInputValue((safeQty + 1).toString());
-    }
-
-    function handleDecrement() {
-        setInputValue(Math.max(0, safeQty - 1).toString());
-    }
-
+    function handleIncrement() { setInputValue((safeQty + 1).toString()); }
+    function handleDecrement() { setInputValue(Math.max(0, safeQty - 1).toString()); }
     function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const val = e.target.value;
-        if (/^\d*$/.test(val)) setInputValue(val);
+        if (/^\d*$/.test(e.target.value)) setInputValue(e.target.value);
     }
 
     function handleSave() {
         if (!gw) return;
-        onUpdate(gw.id, safeQty, imageUrl);
+        onUpdate(gw.sku, safeQty, imageUrl, nameValue);
         onClose();
+    }
+
+    function handleSendRequest() {
+        if (!gw) return;
+        const qty = parseInt(reqQty, 10);
+        if (isNaN(qty) || qty <= 0) return;
+        const username = typeof window !== "undefined"
+            ? (localStorage.getItem("pwx_username") ?? "User")
+            : "User";
+        addRequest({ type: "gateway", itemSku: gw.sku, itemName: gw.id, requestedQty: qty, requestedBy: username });
+        setSubmitted(true);
     }
 
     function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
-        if (file) {
-            const url = URL.createObjectURL(file);
-            setImageUrl(url);
-        }
+        if (file) setImageUrl(URL.createObjectURL(file));
     }
 
     function handleOpenChange(o: boolean) {
-        if (!o) {
-            setInputValue("");
-            onClose();
-        }
+        if (!o) { setInputValue(""); setNameValue(""); onClose(); }
     }
 
     if (!gw) return null;
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-[400px] text-black p-0 overflow-hidden rounded-[20px] border border-neutral-200/60 shadow-xl bg-white mx-auto w-[90vw]">
+            <DialogContent 
+                className="sm:max-w-[400px] text-black p-0 overflow-hidden rounded-[20px] border border-neutral-200/60 shadow-xl bg-white mx-auto w-[90vw]"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+            >
                 {/* Image area */}
                 <div className="p-2.5 pb-0">
                     <div className="relative group flex h-48 w-full items-center justify-center rounded-[16px] bg-neutral-100/60 overflow-hidden border border-neutral-200/50">
                         {imageUrl ? (
-                            <img src={imageUrl} alt={gw.id} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                            <img src={imageUrl} alt={gw.id} className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105" />
                         ) : (
                             <div className="flex flex-col items-center gap-3 text-neutral-400">
                                 <Radio className="h-14 w-14 opacity-80" strokeWidth={1.5} />
                             </div>
                         )}
-                        <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer text-white backdrop-blur-[2px]">
-                            <Upload className="h-6 w-6 mb-1.5 drop-shadow-md" />
-                            <span className="text-xs font-medium drop-shadow-md">Upload</span>
-                            <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-                        </label>
+                        {role === "admin" && (
+                            <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer text-white backdrop-blur-[2px]">
+                                <Upload className="h-6 w-6 mb-1.5 drop-shadow-md" />
+                                <span className="text-xs font-medium drop-shadow-md">Upload</span>
+                                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                            </label>
+                        )}
                     </div>
                 </div>
 
@@ -136,71 +148,111 @@ function GatewayDetailDialog({
                     <div className="space-y-2.5">
                         <DialogHeader>
                             <DialogTitle className="text-lg sm:text-xl font-bold text-neutral-900 leading-tight tracking-tight text-left">
-                                {gw.id}
+                                {role === "admin" ? (
+                                    <input
+                                        type="text"
+                                        value={nameValue}
+                                        onChange={(e) => setNameValue(e.target.value)}
+                                        className="w-full bg-transparent border-b border-transparent hover:border-neutral-300 focus:border-blue-500 focus:outline-none transition-colors py-0.5 truncate"
+                                        placeholder="Gateway Name"
+                                    />
+                                ) : (
+                                    gw.id
+                                )}
                             </DialogTitle>
                         </DialogHeader>
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="text-[11px] text-neutral-500 font-mono bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200/60">{gw.sku}</span>
                             <span className="text-[11px] text-neutral-500 font-mono bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200/60">{gw.location}</span>
-                            <Badge variant="secondary" className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-100/50 hover:bg-blue-100">
+                            <Badge variant="secondary" className="text-[11px] px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-100/50">
                                 Gateway
                             </Badge>
                         </div>
                     </div>
 
-                    {/* Quantity adjuster */}
-                    <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-neutral-900">Quantity</span>
-                            {inputValue === "" && (
-                                <span className="text-[10px] font-medium text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Invalid</span>
-                            )}
-                        </div>
-                        <div className="flex items-center p-1 rounded-xl border border-neutral-200 bg-white shadow-sm transition-all focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 shrink-0 rounded-lg hover:bg-neutral-100 text-neutral-600 transition-colors"
-                                onClick={handleDecrement}
-                                disabled={safeQty <= 0}
-                            >
-                                <Minus className="h-4 w-4" />
-                            </Button>
-                            <Input
-                                type="text"
-                                inputMode="numeric"
-                                value={inputValue}
-                                onChange={handleInputChange}
-                                className="flex-1 text-center text-lg font-bold border-0 focus-visible:ring-0 shadow-none px-2 h-9 bg-transparent"
-                            />
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 shrink-0 rounded-lg hover:bg-neutral-100 text-neutral-600 transition-colors"
-                                onClick={handleIncrement}
-                            >
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </div>
+                    {/* Stats */}
+                    <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
+                        <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Current Qty</span>
+                        <span className="font-semibold text-neutral-900 text-base">{gw.quantity} <span className="text-xs text-neutral-400 font-normal">units</span></span>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-2.5 pt-1">
-                        <Button
-                            variant="ghost"
-                            className="flex-1 h-10 rounded-lg text-neutral-600 hover:bg-neutral-100 text-sm font-medium"
-                            onClick={onClose}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            className="flex-[1.5] h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-md shadow-blue-600/20 transition-all hover:-translate-y-px"
-                            onClick={handleSave}
-                            disabled={inputValue === ""}
-                        >
-                            Save Changes
-                        </Button>
-                    </div>
+                    {/* ── ADMIN: full qty editor ── */}
+                    {role === "admin" && (
+                        <>
+                            <div className="space-y-2.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-neutral-900">Adjust Quantity</span>
+                                    {inputValue === "" && (
+                                        <span className="text-[10px] font-medium text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded">Invalid</span>
+                                    )}
+                                </div>
+                                <div className="flex items-center p-1 rounded-xl border border-neutral-200 bg-white shadow-sm transition-all focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10">
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-lg hover:bg-neutral-100 text-neutral-600" onClick={handleDecrement} disabled={safeQty <= 0}>
+                                        <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <Input type="text" inputMode="numeric" value={inputValue} onChange={handleInputChange} className="flex-1 text-center text-lg font-bold border-0 focus-visible:ring-0 shadow-none px-2 h-9 bg-transparent" />
+                                    <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-lg hover:bg-neutral-100 text-neutral-600" onClick={handleIncrement}>
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="flex gap-2.5 pt-1">
+                                <Button variant="ghost" className="flex-1 h-10 rounded-lg text-neutral-600 hover:bg-neutral-100 text-sm font-medium" onClick={onClose}>Cancel</Button>
+                                <Button className="flex-[1.5] h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-md" onClick={handleSave} disabled={inputValue === ""}>
+                                    Save Changes
+                                </Button>
+                            </div>
+                        </>
+                    )}
+
+                    {/* ── USER: withdrawal request form ── */}
+                    {role !== "admin" && (
+                        submitted ? (
+                            <div className="flex flex-col items-center gap-3 py-4 text-center">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                                <p className="text-sm font-semibold text-neutral-900">Request Sent!</p>
+                                <p className="text-xs text-neutral-500">The administrator will review your withdrawal request shortly.</p>
+                                <Button variant="ghost" className="mt-1 h-9 text-sm" onClick={onClose}>Close</Button>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-semibold text-neutral-900">Request Withdrawal Qty</span>
+                                        <span className="text-xs text-neutral-400">Available: {gw.quantity} units</span>
+                                    </div>
+                                    <div className="flex items-center p-1 rounded-xl border border-neutral-200 bg-white shadow-sm focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10">
+                                        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-lg hover:bg-neutral-100 text-neutral-600"
+                                            onClick={() => setReqQty(q => Math.max(1, parseInt(q || "1") - 1).toString())}
+                                            disabled={parseInt(reqQty || "1") <= 1}>
+                                            <Minus className="h-4 w-4" />
+                                        </Button>
+                                        <Input type="text" inputMode="numeric" value={reqQty}
+                                            onChange={(e) => { if (/^\d*$/.test(e.target.value)) setReqQty(e.target.value); }}
+                                            className="flex-1 text-center text-lg font-bold border-0 focus-visible:ring-0 shadow-none px-2 h-9 bg-transparent" />
+                                        <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-lg hover:bg-neutral-100 text-neutral-600"
+                                            onClick={() => setReqQty(q => (parseInt(q || "0") + 1).toString())}
+                                            disabled={parseInt(reqQty || "0") >= gw.quantity}>
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <p className="text-[11px] text-neutral-400 text-center">Your request will be sent to the admin for approval.</p>
+                                </div>
+                                <div className="flex gap-2.5 pt-1">
+                                    <Button variant="ghost" className="flex-1 h-10 rounded-lg text-neutral-600 hover:bg-neutral-100 text-sm font-medium" onClick={onClose}>Cancel</Button>
+                                    <Button
+                                        className="flex-[1.5] h-10 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-md"
+                                        onClick={handleSendRequest}
+                                        disabled={!reqQty || parseInt(reqQty) <= 0 || parseInt(reqQty) > gw.quantity}
+                                    >
+                                        Send Request
+                                    </Button>
+                                </div>
+                            </>
+                        )
+                    )}
                 </div>
             </DialogContent>
         </Dialog>
@@ -229,9 +281,9 @@ export default function GatewaysPage() {
         setGateways([...gateways, newGw]);
     };
 
-    const handleUpdate = (id: string, newQty: number, imageUrl?: string) => {
+    const handleUpdate = (sku: string, newQty: number, imageUrl?: string, newName?: string) => {
         setGateways(prev =>
-            prev.map(g => g.id === id ? { ...g, quantity: newQty, image: imageUrl !== undefined ? imageUrl : g.image } : g)
+            prev.map(g => g.sku === sku ? { ...g, quantity: newQty, image: imageUrl !== undefined ? imageUrl : g.image, id: newName !== undefined ? newName : g.id } : g)
         );
     };
 
@@ -347,6 +399,7 @@ export default function GatewaysPage() {
                 open={dialogOpen}
                 onClose={handleCloseDialog}
                 onUpdate={handleUpdate}
+                role={role}
             />
         </div>
     );

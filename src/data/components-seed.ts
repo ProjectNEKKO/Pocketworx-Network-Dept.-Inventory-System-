@@ -44,5 +44,5 @@ export const COMPONENT_CATALOG_SEED: ComponentItem[] = [
     { name: "U BOLTS 1 1/2 \"", sku: "HW-UBOLT-15", stock: 45, min: 100, category: "Accessories" },
 ].map((item, index) => ({
     ...item,
-    warehouse: index % 2 === 0 ? "Main Warehouse" : "Secondary Warehouse",
+    warehouse: index % 2 === 0 ? "PWX IoT Hub" : "Jenny's Warehouse",
 }));

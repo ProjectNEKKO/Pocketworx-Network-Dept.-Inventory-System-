@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useClientRole } from "@/lib/use-client-role";
 
@@ -12,14 +12,7 @@ import {
     CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import {
     Radio,
     Cpu,
@@ -34,6 +27,7 @@ import {
     AlertTriangle,
     Upload,
     Bell,
+    Search,
 } from "lucide-react";
 import {
     Dialog,
@@ -41,6 +35,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
     AreaChart,
     Area,
@@ -53,12 +48,46 @@ import {
     Pie,
     Cell,
 } from "recharts";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from "@/components/ui/sheet";
+import {
+    StockRequest,
+    loadRequests,
+    updateRequestStatus,
+} from "@/lib/stock-requests";
+import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
+import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
+
+const GATEWAY_KEY = "pwx_gateway_catalog";
+function loadGwCatalog() {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(localStorage.getItem(GATEWAY_KEY) ?? "[]"); } catch { return []; }
+}
+function saveGwCatalog(items: object[]) {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(GATEWAY_KEY, JSON.stringify(items));
+}
+function relTime(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+}
 
 const statsData = [
     {
         label: "Registered Gateways",
         value: "10",
         icon: Radio,
+        iconColor: "text-blue-500",
+        bgColor: "bg-blue-100/80",
         href: "/gateways",
         data: [
             { name: "PWX IoT Hub", value: 6, color: "#3b82f6" },
@@ -69,6 +98,8 @@ const statsData = [
         label: "Components",
         value: "40",
         icon: Cpu,
+        iconColor: "text-violet-500",
+        bgColor: "bg-violet-100/80",
         href: "/components",
         data: [
             { name: "Hardware", value: 15, color: "#8b5cf6" },
@@ -81,6 +112,8 @@ const statsData = [
         label: "Total BOMs",
         value: "5",
         icon: FileStack,
+        iconColor: "text-amber-500",
+        bgColor: "bg-amber-100/80",
         href: "/bom",
         data: [
             { name: "Active", value: 3, color: "#f59e0b" },
@@ -91,6 +124,8 @@ const statsData = [
         label: "Critical Alerts",
         value: "6",
         icon: AlertTriangle,
+        iconColor: "text-red-500",
+        bgColor: "bg-red-100/80",
         data: [
             { name: "Hardware", value: 2, color: "#ef4444" },
             { name: "Accessories", value: 2, color: "#fca5a5" },
@@ -146,14 +181,72 @@ const notificationsList = [
 
 
 const recentActivity = [
-    { icon: PackagePlus, color: "bg-violet-100 text-violet-600",  action: "Component Added",      detail: "915Mhz Lora Antenna 3.8dBi × 10",          time: "2 min ago", user: "John Doe" },
-    { icon: Radio,       color: "bg-blue-100 text-blue-600",      action: "Gateway Registered",   detail: "Gateway 915 Outdoor — PWX IoT Hub",       time: "18 min ago", user: "Admin Setup" },
-    { icon: RefreshCw,   color: "bg-amber-100 text-amber-600",    action: "Stock Updated",        detail: "CAT5e Cable: 120 → 145 pcs",              time: "1 hr ago", user: "Jane Smith" },
-    { icon: FileStack,   color: "bg-orange-100 text-orange-600",  action: "BOM Created",          detail: "PWX Gateway v3.3 — Rev A",               time: "3 hrs ago", user: "Admin Setup" },
-    { icon: PackagePlus, color: "bg-violet-100 text-violet-600",  action: "Component Added",      detail: "M5 Bolts and Nuts × 200",                time: "5 hrs ago", user: "John Doe" },
-    { icon: RefreshCw,   color: "bg-emerald-100 text-emerald-600",action: "Stock Updated",        detail: "PoE Adaptor 24v: 40 → 55 pcs",           time: "Yesterday", user: "Jane Smith" },
-    { icon: Radio,       color: "bg-blue-100 text-blue-600",      action: "Gateway Registered",   detail: "Femto Outdoor — Jenny's",                  time: "Yesterday", user: "Admin Setup" },
-    { icon: PlusCircle,  color: "bg-emerald-100 text-emerald-600",action: "Location Added",       detail: "PWX IoT Hub — Zone B (12 bins)",         time: "2 days ago", user: "John Doe" },
+    { 
+        icon: PackagePlus, color: "bg-violet-100 text-violet-600", action: "Component Added", detail: "915Mhz Lora Antenna 3.8dBi × 10", time: "2 min ago", user: "John Doe",
+        itemHistory: [
+            { action: "Stock Updated", detail: "Added 10 pcs via purchase order", time: "2 min ago", user: "John Doe" },
+            { action: "Location Assigned", detail: "Moved to PWX IoT Hub Shelf A2", time: "1 day ago", user: "Admin Setup" },
+            { action: "Min Stock Level Set", detail: "Minimum set to 100", time: "3 days ago", user: "Jane Smith" },
+            { action: "Component Created", detail: "Initial Registration", time: "1 week ago", user: "Admin Setup" }
+        ]
+    },
+    { 
+        icon: Radio, color: "bg-blue-100 text-blue-600", action: "Gateway Registered", detail: "Gateway 915 Outdoor — PWX IoT Hub", time: "18 min ago", user: "Admin Setup",
+        itemHistory: [
+            { action: "Gateway Registered", detail: "Registered to PWX IoT Hub", time: "18 min ago", user: "Admin Setup" },
+            { action: "Firmware Updated", detail: "Flashed v2.1.0", time: "1 day ago", user: "System" },
+            { action: "Provisioned", detail: "Added to provisioning queue", time: "2 days ago", user: "John Doe" }
+        ]
+    },
+    { 
+        icon: RefreshCw, color: "bg-amber-100 text-amber-600", action: "Stock Updated", detail: "CAT5e Cable: 120 → 145 pcs", time: "1 hr ago", user: "Jane Smith",
+        itemHistory: [
+            { action: "Stock Updated", detail: "120 → 145 pcs", time: "1 hr ago", user: "Jane Smith" },
+            { action: "Stock Removed", detail: "150 → 120 pcs", time: "2 days ago", user: "John Doe" },
+            { action: "Price Updated", detail: "Unit cost changed to PHP 35", time: "1 week ago", user: "Admin Setup" },
+            { action: "Location Changed", detail: "Moved to Wire Rack B", time: "2 weeks ago", user: "Jane Smith" },
+            { action: "Component Created", detail: "Initial Registration", time: "1 month ago", user: "Admin Setup" }
+        ]
+    },
+    { 
+        icon: FileStack, color: "bg-orange-100 text-orange-600", action: "BOM Created", detail: "PWX Gateway v3.3 — Rev A", time: "3 hrs ago", user: "Admin Setup",
+        itemHistory: [
+            { action: "BOM Created", detail: "Version 3.3 revision A created", time: "3 hrs ago", user: "Admin Setup" },
+            { action: "Draft Saved", detail: "Initial component list", time: "4 hrs ago", user: "Admin Setup" }
+        ]
+    },
+    { 
+        icon: PackagePlus, color: "bg-violet-100 text-violet-600", action: "Component Added", detail: "M5 Bolts and Nuts × 200", time: "5 hrs ago", user: "John Doe",
+        itemHistory: [
+            { action: "Stock Updated", detail: "Added 200 pcs", time: "5 hrs ago", user: "John Doe" },
+            { action: "Stock Removed", detail: "Used 50 pcs for Gateway Assembly", time: "2 days ago", user: "Jane Smith" },
+            { action: "Component Created", detail: "Initial Registration", time: "3 weeks ago", user: "Admin Setup" }
+        ]
+    },
+    { 
+        icon: RefreshCw, color: "bg-emerald-100 text-emerald-600", action: "Stock Updated", detail: "PoE Adaptor 24v: 40 → 55 pcs", time: "Yesterday", user: "Jane Smith",
+        itemHistory: [
+            { action: "Stock Updated", detail: "40 → 55 pcs", time: "Yesterday", user: "Jane Smith" },
+            { action: "Stock Removed", detail: "60 → 40 pcs (BOM Fulfillment)", time: "5 days ago", user: "John Doe" },
+            { action: "Location Verified", detail: "Audited Bin C4", time: "2 weeks ago", user: "Admin Setup" },
+            { action: "Component Created", detail: "Initial Registration", time: "2 months ago", user: "Admin Setup" }
+        ]
+    },
+    { 
+        icon: Radio, color: "bg-blue-100 text-blue-600", action: "Gateway Registered", detail: "Femto Outdoor — Jenny's", time: "Yesterday", user: "Admin Setup",
+        itemHistory: [
+            { action: "Gateway Registered", detail: "Registered to Jenny's", time: "Yesterday", user: "Admin Setup" },
+            { action: "Status Changed", detail: "Marked as Ready to Deploy", time: "2 days ago", user: "System" },
+            { action: "Provisioned", detail: "Added to network", time: "3 days ago", user: "Jane Smith" }
+        ]
+    },
+    { 
+        icon: PlusCircle, color: "bg-emerald-100 text-emerald-600", action: "Location Added", detail: "PWX IoT Hub — Zone B (12 bins)", time: "2 days ago", user: "John Doe",
+        itemHistory: [
+            { action: "Location Added", detail: "Created Zone B with 12 bins", time: "2 days ago", user: "John Doe" },
+            { action: "Capacity Planning", detail: "Drafted layout for Zone B", time: "1 week ago", user: "Admin Setup" }
+        ]
+    },
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -188,8 +281,50 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function DashboardPage() {
     const { role } = useClientRole();
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [historySearch, setHistorySearch] = useState("");
+    const [selectedHistoryItem, setSelectedHistoryItem] = useState<typeof recentActivity[0] | null>(null);
     const [isCriticalAlertsOpen, setIsCriticalAlertsOpen] = useState(false);
     const [period, setPeriod] = useState<keyof typeof chartData>("This Year");
+    const [notifOpen, setNotifOpen] = useState(false);
+    const [requests, setRequests] = useState<StockRequest[]>([]);
+
+    const refreshRequests = useCallback(() => setRequests(loadRequests()), []);
+    useEffect(() => {
+        refreshRequests();
+        const id = setInterval(refreshRequests, 10_000);
+        return () => clearInterval(id);
+    }, [refreshRequests]);
+    useEffect(() => { if (notifOpen) refreshRequests(); }, [notifOpen, refreshRequests]);
+
+    function handleAcceptReq(req: StockRequest) {
+        if (req.type === "component") {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const next = loadComponentCatalog(COMPONENT_CATALOG_SEED).map((c: any) =>
+                c.sku === req.itemSku ? { ...c, stock: Math.max(0, c.stock - req.requestedQty) } : c
+            );
+            saveComponentCatalog(next);
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const next = loadGwCatalog().map((g: any) =>
+                g.sku === req.itemSku ? { ...g, quantity: Math.max(0, g.quantity - req.requestedQty) } : g
+            );
+            saveGwCatalog(next);
+        }
+        updateRequestStatus(req.id, "accepted");
+        refreshRequests();
+    }
+    function handleDeclineReq(req: StockRequest) {
+        updateRequestStatus(req.id, "declined");
+        refreshRequests();
+    }
+
+    const pendingCount = requests.filter(r => r.status === "pending").length;
+
+    const filteredHistory = recentActivity.filter(item => 
+        item.action.toLowerCase().includes(historySearch.toLowerCase()) ||
+        item.detail.toLowerCase().includes(historySearch.toLowerCase()) ||
+        item.user.toLowerCase().includes(historySearch.toLowerCase())
+    );
 
     const activeData = chartData[period];
     return (
@@ -205,35 +340,74 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="shrink-0 flex items-center gap-2 sm:gap-3">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                    {/* Live Notifications Bell */}
+                    <Sheet open={notifOpen} onOpenChange={setNotifOpen}>
+                        <SheetTrigger asChild>
                             <button className="relative p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors outline-none cursor-pointer select-none">
                                 <Bell className="h-5 w-5" />
-                                <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                {pendingCount > 0 && (
+                                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                                )}
                             </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-[320px] p-2 bg-white rounded-xl shadow-xl border-neutral-100 z-50">
-                            <div className="flex items-center justify-between px-2 py-1.5">
-                                <DropdownMenuLabel className="font-semibold text-neutral-900 text-base p-0">Notifications</DropdownMenuLabel>
-                                <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md cursor-pointer hover:bg-amber-100">Mark all read</span>
-                            </div>
-                            <DropdownMenuSeparator className="bg-neutral-100 my-1" />
-                            <div className="max-h-[300px] overflow-y-auto space-y-0.5" style={{ scrollbarWidth: 'thin' }}>
-                                {notificationsList.map(n => (
-                                    <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-1 p-3 cursor-pointer outline-none rounded-lg transition-colors hover:bg-neutral-50 focus:bg-neutral-50">
-                                        <div className="flex items-center justify-between w-full">
-                                            <span className={`text-sm font-semibold flex items-center gap-1.5 ${n.unread ? 'text-neutral-900' : 'text-neutral-600'}`}>
-                                                {n.unread && <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />}
-                                                {n.title}
-                                            </span>
-                                            <span className="text-[10px] text-neutral-400 font-medium shrink-0">{n.time}</span>
+                        </SheetTrigger>
+                        <SheetContent side="right" className="w-full sm:max-w-md bg-white border-l border-neutral-200 p-0 flex flex-col">
+                            <SheetHeader className="px-5 py-4 border-b border-neutral-100 shrink-0">
+                                <div className="flex items-center justify-between">
+                                    <SheetTitle className="text-base font-bold text-neutral-900">Notifications</SheetTitle>
+                                    {pendingCount > 0 && (
+                                        <span className="text-xs font-semibold bg-red-500 text-white px-2 py-0.5 rounded-full">{pendingCount} pending</span>
+                                    )}
+                                </div>
+                            </SheetHeader>
+                            <div className="flex-1 overflow-y-auto divide-y divide-neutral-100">
+                                {requests.length === 0 && (
+                                    <div className="flex flex-col items-center justify-center gap-3 py-16 text-neutral-400">
+                                        <Bell className="h-10 w-10 opacity-30" strokeWidth={1.5} />
+                                        <p className="text-sm font-medium">No notifications yet</p>
+                                    </div>
+                                )}
+                                {[
+                                    ...requests.filter(r => r.status === "pending"),
+                                    ...requests.filter(r => r.status !== "pending"),
+                                ].map(req => (
+                                    <div key={req.id} className="px-5 py-4 space-y-3">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
+                                                    {req.type === "component"
+                                                        ? <PackagePlus className="h-4 w-4 text-violet-600" />
+                                                        : <Radio className="h-4 w-4 text-blue-600" />}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-neutral-900 truncate">{req.itemName}</p>
+                                                    <p className="text-[11px] text-neutral-500 font-mono">{req.itemSku}</p>
+                                                </div>
+                                            </div>
+                                            <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                                req.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200"
+                                                : req.status === "accepted" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                : "bg-neutral-100 text-neutral-500 border-neutral-200"
+                                            }`}>{req.status}</span>
                                         </div>
-                                        <span className="text-xs text-neutral-500 leading-tight block w-full truncate">{n.desc}</span>
-                                    </DropdownMenuItem>
+                                        <div className="flex justify-between text-xs text-neutral-500">
+                                            <span><span className="font-medium text-neutral-700">{req.requestedBy}</span> · requested <span className="font-bold text-neutral-900">−{req.requestedQty} pcs</span></span>
+                                            <span>{relTime(req.createdAt)}</span>
+                                        </div>
+                                        {req.status === "pending" && role === "admin" && (
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleAcceptReq(req)} className="flex-1 h-8 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center justify-center gap-1 transition-colors">
+                                                    <ChevronRight className="h-3.5 w-3.5" />Accept
+                                                </button>
+                                                <button onClick={() => handleDeclineReq(req)} className="flex-1 h-8 text-xs rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium flex items-center justify-center gap-1 transition-colors">
+                                                    <RefreshCw className="h-3.5 w-3.5" />Decline
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                        </SheetContent>
+                    </Sheet>
 
                     {role === "admin" && (
                         <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-neutral-900 text-neutral-50 hover:bg-neutral-900/90 h-10 px-4 py-2 cursor-pointer shadow-sm">
@@ -269,8 +443,8 @@ export default function DashboardPage() {
                                         <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-1">{stat.label}</p>
                                         <span className="text-2xl font-extrabold text-neutral-900 leading-none">{stat.value}</span>
                                     </div>
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-100/80 shrink-0">
-                                        <stat.icon className="h-4 w-4 text-neutral-500" />
+                                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 ${stat.bgColor || 'bg-neutral-100/80'}`}>
+                                        <stat.icon className={`h-4 w-4 ${stat.iconColor || 'text-neutral-500'}`} />
                                     </div>
                                 </div>
 
@@ -496,19 +670,36 @@ export default function DashboardPage() {
             <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
                 <DialogContent className="sm:max-w-[700px] text-black w-[90vw] overflow-hidden rounded-[24px] p-0 border border-neutral-200/60 shadow-2xl bg-white mx-auto">
                     <DialogHeader className="px-6 md:px-8 py-6 border-b border-neutral-100 bg-neutral-50/50">
-                        <DialogTitle className="text-xl md:text-2xl font-bold text-neutral-900 flex items-center gap-2.5">
-                            <Clock className="h-6 w-6 text-neutral-400" />
-                            Activity History
-                        </DialogTitle>
-                        <p className="text-sm text-neutral-500 mt-1">
-                            A complete log of recent changes across the inventory system.
-                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <DialogTitle className="text-xl md:text-2xl font-bold text-neutral-900 flex items-center gap-2.5">
+                                    <Clock className="h-6 w-6 text-neutral-400" />
+                                    Activity History
+                                </DialogTitle>
+                                <p className="text-sm text-neutral-500 mt-1">
+                                    A complete log of recent changes across the inventory system.
+                                </p>
+                            </div>
+                            <div className="relative w-full sm:w-64 shrink-0">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                                <Input
+                                    placeholder="Search history..."
+                                    value={historySearch}
+                                    onChange={(e) => setHistorySearch(e.target.value)}
+                                    className="pl-9 bg-white border-neutral-200 h-10 w-full focus-visible:ring-amber-500/20 focus-visible:border-amber-500 rounded-xl shadow-sm"
+                                />
+                            </div>
+                        </div>
                     </DialogHeader>
                     
                     <div className="px-3 md:px-5 py-4 max-h-[65vh] overflow-y-auto bg-white">
                         <div className="space-y-1.5">
-                            {recentActivity.map((item, i) => (
-                                <div key={i} className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-transparent hover:border-neutral-100 hover:bg-neutral-50 transition-colors">
+                            {filteredHistory.length > 0 ? filteredHistory.map((item, i) => (
+                                <div 
+                                    key={i} 
+                                    onClick={() => setSelectedHistoryItem(item)}
+                                    className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-transparent hover:border-neutral-100 hover:bg-neutral-50 transition-colors cursor-pointer"
+                                >
                                     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${item.color}`}>
                                         <item.icon className="h-5 w-5" />
                                     </div>
@@ -521,30 +712,57 @@ export default function DashboardPage() {
                                     </div>
                                     <span className="text-sm text-neutral-400 shrink-0 font-medium whitespace-nowrap ml-4 bg-neutral-100/50 px-2.5 py-1 rounded-full">{item.time}</span>
                                 </div>
+                            )) : (
+                                <div className="text-center py-10 text-neutral-500">
+                                    <Search className="h-8 w-8 mx-auto text-neutral-300 mb-3" />
+                                    <p className="text-sm font-medium text-neutral-600">No matching history found.</p>
+                                    <p className="text-xs mt-1">Try adjusting your search terms.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Item History Pop-up */}
+            <Dialog open={!!selectedHistoryItem} onOpenChange={(open) => !open && setSelectedHistoryItem(null)}>
+                <DialogContent className="sm:max-w-[500px] text-black w-[90vw] rounded-[24px] p-0 overflow-hidden border border-neutral-200/60 shadow-2xl bg-white mx-auto">
+                    <DialogHeader className="px-6 py-5 border-b border-neutral-100 bg-neutral-50/80">
+                        <DialogTitle className="text-xl font-bold text-neutral-900 flex flex-col gap-1">
+                            <span>Item History</span>
+                            <span className="text-sm font-medium text-neutral-500 truncate mt-0.5">{selectedHistoryItem?.detail}</span>
+                        </DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="px-6 py-6 pb-8">
+                        <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider mb-5">Last 5 Changes</h4>
+                        <div className="space-y-5 pl-1.5 pt-1">
+                            {selectedHistoryItem?.itemHistory?.map((log, i) => (
+                                <div key={i} className="flex gap-4 relative">
+                                    {/* Timeline line */}
+                                    {i !== selectedHistoryItem.itemHistory.length - 1 && (
+                                        <div className="absolute left-[3.5px] top-[22px] bottom-[-24px] w-[2px] bg-neutral-200/70" />
+                                    )}
+                                    <div className="relative z-10 w-[9px] h-[9px] rounded-full bg-white border-[2.5px] border-amber-500 mt-1.5 shrink-0 shadow-sm" />
+                                    <div className="flex-1 pb-2">
+                                        <div className="flex justify-between items-start gap-2 mb-1.5">
+                                            <span className="text-sm font-bold text-neutral-900 leading-none">{log.action}</span>
+                                            <span className="text-[10px] font-bold text-neutral-500 bg-neutral-100 border border-neutral-200/50 px-2 py-0.5 rounded whitespace-nowrap uppercase tracking-wider leading-none mt-[-2px]">{log.time}</span>
+                                        </div>
+                                        <p className="text-sm text-neutral-600 mb-1.5 leading-snug">{log.detail}</p>
+                                        <div className="text-[11px] font-medium text-neutral-400 flex items-center gap-1.5">
+                                            <div className="h-4 w-4 rounded-full bg-neutral-200 flex items-center justify-center text-[8px] font-bold text-neutral-600">{log.user.charAt(0)}</div>
+                                            <span>by <span className="text-neutral-600">{log.user}</span></span>
+                                        </div>
+                                    </div>
+                                </div>
                             ))}
 
-                            {/* Dummy items for scrolling context */}
-                            <div className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-transparent hover:border-neutral-100 hover:bg-neutral-50 transition-colors opacity-70">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-600">
-                                    <RefreshCw className="h-5 w-5" />
+                            {(!selectedHistoryItem?.itemHistory || selectedHistoryItem.itemHistory.length === 0) && (
+                                <div className="text-center py-6">
+                                    <p className="text-sm text-neutral-500">No recorded history for this item.</p>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-base font-semibold text-neutral-900 mb-0.5">Stock Updated</p>
-                                    <p className="text-sm text-neutral-500 truncate">RG316 Bulk Head: 20 → 40 pcs</p>
-                                </div>
-                                <span className="text-sm text-neutral-400 shrink-0 font-medium whitespace-nowrap ml-4 bg-neutral-100/50 px-2.5 py-1 rounded-full">3 days ago</span>
-                            </div>
-
-                            <div className="flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-transparent hover:border-neutral-100 hover:bg-neutral-50 transition-colors opacity-70">
-                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-100 text-blue-600">
-                                    <Radio className="h-5 w-5" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-base font-semibold text-neutral-900 mb-0.5">Gateway Registered</p>
-                                    <p className="text-sm text-neutral-500 truncate">Gateway 915 Indoor — Jenny's</p>
-                                </div>
-                                <span className="text-sm text-neutral-400 shrink-0 font-medium whitespace-nowrap ml-4 bg-neutral-100/50 px-2.5 py-1 rounded-full">Last week</span>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </DialogContent>

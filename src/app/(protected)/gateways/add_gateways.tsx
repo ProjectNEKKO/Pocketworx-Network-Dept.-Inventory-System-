@@ -30,12 +30,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+export interface GatewayActivity {
+  action: string;
+  user: string;
+  timestamp: string;
+  details: string;
+}
+
 export interface GatewayItem {
   id: string;
   sku: string;
   location: string;
   quantity: number;
   image?: string;
+  history?: GatewayActivity[];
 }
 
 const formSchema = z.object({
@@ -118,33 +126,40 @@ export function AddGatewaysDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
+        <Button className="bg-neutral-950 hover:bg-neutral-800 text-white shadow-md transition-colors">
           <Plus className="mr-2 h-4 w-4" />
           Add Gateway
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px] bg-white text-black p-0 overflow-hidden rounded-[20px] shadow-xl border border-neutral-200/60 max-h-[90vh] flex flex-col mx-auto w-[95vw]">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col h-full">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
             {/* Image Source Overlay */}
-            <div className="relative group w-full h-40 bg-neutral-100/50 flex items-center justify-center border-b border-neutral-100 overflow-hidden shrink-0">
+            <div className="relative group w-full h-56 bg-neutral-50 flex items-center justify-center border-b border-neutral-100 overflow-hidden shrink-0 transition-colors hover:bg-neutral-100/80">
                {imageUrl ? (
-                  <img src={imageUrl} alt="Gateway Preview" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <>
+                      <img src={imageUrl} alt="Gateway Preview" className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105" />
+                      <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer text-white backdrop-blur-[2px]">
+                          <Upload className="h-6 w-6 mb-1.5 drop-shadow-md" />
+                          <span className="text-sm font-medium drop-shadow-md">Change Image</span>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                      </label>
+                  </>
                ) : (
-                  <div className="flex flex-col items-center gap-2 text-neutral-400">
-                      <Package className="h-10 w-10 opacity-70" strokeWidth={1.5} />
-                      <span className="text-xs font-medium">No Image Uploaded</span>
-                  </div>
+                  <label className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer text-neutral-400 transition-colors group-hover:text-blue-600">
+                      <div className="flex flex-col items-center gap-3 transition-transform duration-300 group-hover:-translate-y-1">
+                          <div className="p-3 bg-white rounded-full shadow-sm border border-neutral-100 group-hover:border-blue-200 group-hover:shadow-md transition-all">
+                              <Upload className="h-6 w-6 opacity-80" strokeWidth={2} />
+                          </div>
+                          <span className="text-xs font-bold tracking-wider uppercase text-neutral-500 group-hover:text-blue-600">Upload Gateway Image</span>
+                      </div>
+                      <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                  </label>
                )}
-               <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer text-white backdrop-blur-[2px]">
-                  <Upload className="h-6 w-6 mb-1.5 drop-shadow-md" />
-                  <span className="text-xs font-medium drop-shadow-md">{imageUrl ? 'Change Image' : 'Upload Image'}</span>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-               </label>
             </div>
 
             {/* Scrollable Form Content */}
-            <div className="p-6 space-y-5 overflow-y-auto">
+            <div className="p-6 space-y-5 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
               <div className="space-y-1.5">
                 <DialogTitle className="text-xl font-bold text-neutral-900 tracking-tight">Add New Gateway</DialogTitle>
                 <DialogDescription className="text-neutral-500 text-sm">
@@ -260,7 +275,7 @@ export function AddGatewaysDialog({
                 </Button>
                 <Button 
                     type="submit"
-                    className="h-10 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white font-medium shadow-md shadow-amber-500/20 transition-all hover:-translate-y-px w-full sm:w-auto"
+                    className="h-10 bg-neutral-950 hover:bg-neutral-800 text-white font-medium shadow-md transition-colors w-full sm:w-auto"
                 >
                     Register Gateway
                 </Button>
