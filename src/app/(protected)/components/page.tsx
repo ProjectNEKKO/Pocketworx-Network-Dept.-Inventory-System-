@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Cpu, Search, Plus, Minus, Package, Upload, Trash2 } from "lucide-react";
+import { Cpu, Search, Plus, Minus, Package, Upload, Trash2, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
     Dialog,
@@ -30,6 +30,7 @@ import { AddComponentsDialog, ComponentItem } from "./add_components";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
 import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
 import { addRequest } from "@/lib/stock-requests";
+import { exportComponentsToExcel } from "@/lib/excel-import";
 
 function getStatusInfo(stock: number, min: number) {
     const stockPercent = Math.round((stock / min) * 100);
@@ -325,7 +326,7 @@ export default function ComponentsPage() {
         setComponents(prev => prev.filter(c => c.sku !== sku));
     };
 
-    const filtered = components.filter(c => {
+    const filtered = components.reduce((acc, c) => {
         const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) ||
                               c.sku.toLowerCase().includes(search.toLowerCase());
         
@@ -334,12 +335,16 @@ export default function ComponentsPage() {
         if (c.warehouse === "PWX IoT Hub" || c.warehouse === "Main Warehouse" || c.warehouse === "Main Warehouse - PWX IoT Hub") {
             normalizedWarehouse = "PWX IoT Hub";
         } else if (c.warehouse === "Jenny's" || c.warehouse === "Secondary Warehouse" || c.warehouse === "Jenny's Warehouse" || c.warehouse === "Secondary Warehouse - Jenny's Warehouse") {
-            normalizedWarehouse = "Jenny's Warehouse";
+            normalizedWarehouse = "Jenny's";
         }
 
         const matchesWarehouse = warehouseFilter === "all" || warehouseFilter === "All Warehouses" || normalizedWarehouse === warehouseFilter;
-        return matchesSearch && matchesWarehouse;
-    });
+        
+        if (matchesSearch && matchesWarehouse) {
+            acc.push({ ...c, warehouse: normalizedWarehouse });
+        }
+        return acc;
+    }, [] as ComponentItem[]);
 
     return (
         <div className="space-y-8">
@@ -354,10 +359,20 @@ export default function ComponentsPage() {
                     </p>
                 </div>
                 {role === "admin" && (
-                    <AddComponentsDialog
-                        onAdd={handleAddComponent}
-                        existingSkus={components.map(c => c.sku)}
-                    />
+                    <div className="flex items-center gap-2">
+                        <Button 
+                            variant="outline"
+                            onClick={() => exportComponentsToExcel(filtered)}
+                            className="bg-white text-neutral-700 hover:bg-neutral-50 h-10 border-neutral-200 shadow-sm transition-colors"
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Export Excel
+                        </Button>
+                        <AddComponentsDialog
+                            onAdd={handleAddComponent}
+                            existingSkus={components.map(c => c.sku)}
+                        />
+                    </div>
                 )}
             </div>
 
@@ -379,7 +394,7 @@ export default function ComponentsPage() {
                     <SelectContent position="popper" sideOffset={4} className="bg-white border-neutral-200 text-neutral-900 z-50">
                         <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Warehouses</SelectItem>
                         <SelectItem value="PWX IoT Hub" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">PWX IoT Hub</SelectItem>
-                        <SelectItem value="Jenny's Warehouse" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Jenny&apos;s Warehouse</SelectItem>
+                        <SelectItem value="Jenny's" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Jenny&apos;s</SelectItem>
                     </SelectContent>
                 </Select>
             </div>

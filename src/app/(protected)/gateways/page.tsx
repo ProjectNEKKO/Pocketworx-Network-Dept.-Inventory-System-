@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Card,
     CardContent,
@@ -28,21 +28,7 @@ import {
 import { useClientRole } from "@/lib/use-client-role";
 import { AddGatewaysDialog, GatewayItem } from "./add_gateways";
 import { addRequest } from "@/lib/stock-requests";
-
-const initialGateways: GatewayItem[] = [
-    // Main Warehouse
-    { id: "Gateway 915 Outdoor", sku: "GW-915-OA", location: "PWX IoT Hub", quantity: 1 },
-    { id: "Gateway 868 Outdoor", sku: "GW-868-OA", location: "PWX IoT Hub", quantity: 2 },
-    { id: "Gateway 915 Indoor", sku: "GW-915-IA", location: "PWX IoT Hub", quantity: 1 },
-    { id: "Gateway 868 Indoor", sku: "GW-868-IA", location: "PWX IoT Hub", quantity: 5 },
-    { id: "Femto Outdoor", sku: "GW-FM-OA", location: "PWX IoT Hub", quantity: 3 },
-    // Secondary Warehouse
-    { id: "Gateway 915 Outdoor", sku: "GW-915-OB", location: "Jenny's", quantity: 2 },
-    { id: "Gateway 868 Outdoor", sku: "GW-868-OB", location: "Jenny's", quantity: 1 },
-    { id: "Gateway 915 Indoor", sku: "GW-915-IB", location: "Jenny's", quantity: 3 },
-    { id: "Gateway 868 Indoor", sku: "GW-868-IB", location: "Jenny's", quantity: 2 },
-    { id: "Femto Outdoor", sku: "GW-FM-OB", location: "Jenny's", quantity: 1 },
-];
+import { loadGwCatalog, saveGwCatalog } from "@/lib/gateway-catalog";
 
 function GatewayDetailDialog({
     gw,
@@ -261,11 +247,15 @@ function GatewayDetailDialog({
 
 export default function GatewaysPage() {
     const { role } = useClientRole();
-    const [gateways, setGateways] = useState<GatewayItem[]>(initialGateways);
+    const [gateways, setGateways] = useState<GatewayItem[]>([]);
     const [search, setSearch] = useState("");
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
     const [selectedGw, setSelectedGw] = useState<GatewayItem | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
+
+    useEffect(() => {
+        setGateways(loadGwCatalog());
+    }, []);
 
     const handleRowClick = (gw: GatewayItem) => {
         setSelectedGw(gw);
@@ -278,18 +268,26 @@ export default function GatewaysPage() {
     };
 
     const handleAddGateway = (newGw: GatewayItem) => {
-        setGateways([...gateways, newGw]);
+        const next = [...gateways, newGw];
+        setGateways(next);
+        saveGwCatalog(next);
     };
 
     const handleUpdate = (sku: string, newQty: number, imageUrl?: string, newName?: string) => {
-        setGateways(prev =>
-            prev.map(g => g.sku === sku ? { ...g, quantity: newQty, image: imageUrl !== undefined ? imageUrl : g.image, id: newName !== undefined ? newName : g.id } : g)
-        );
+        setGateways(prev => {
+            const next = prev.map(g => g.sku === sku ? { ...g, quantity: newQty, image: imageUrl !== undefined ? imageUrl : g.image, id: newName !== undefined ? newName : g.id } : g);
+            saveGwCatalog(next);
+            return next;
+        });
     };
 
     const handleDelete = (e: React.MouseEvent, sku: string) => {
         e.stopPropagation();
-        setGateways(prev => prev.filter(g => g.sku !== sku));
+        setGateways(prev => {
+            const next = prev.filter(g => g.sku !== sku);
+            saveGwCatalog(next);
+            return next;
+        });
     };
 
     const filtered = gateways.filter(g => {

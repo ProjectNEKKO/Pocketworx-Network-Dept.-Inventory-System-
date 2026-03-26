@@ -26,6 +26,7 @@ import {
     ChevronRight,
     AlertTriangle,
     Upload,
+    Download,
     Bell,
     Search,
 } from "lucide-react";
@@ -62,16 +63,9 @@ import {
 } from "@/lib/stock-requests";
 import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
-
-const GATEWAY_KEY = "pwx_gateway_catalog";
-function loadGwCatalog() {
-    if (typeof window === "undefined") return [];
-    try { return JSON.parse(localStorage.getItem(GATEWAY_KEY) ?? "[]"); } catch { return []; }
-}
-function saveGwCatalog(items: object[]) {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(GATEWAY_KEY, JSON.stringify(items));
-}
+import { loadGwCatalog, saveGwCatalog } from "@/lib/gateway-catalog";
+import { downloadExcelTemplate, processExcelImport } from "@/lib/excel-import";
+import { toast } from "sonner";
 function relTime(iso: string) {
     const diff = Date.now() - new Date(iso).getTime();
     const m = Math.floor(diff / 60000);
@@ -410,23 +404,40 @@ export default function DashboardPage() {
                     </Sheet>
 
                     {role === "admin" && (
-                        <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-neutral-900 text-neutral-50 hover:bg-neutral-900/90 h-10 px-4 py-2 cursor-pointer shadow-sm">
-                            <Upload className="h-4 w-4 shrink-0" />
-                            <span className="hidden sm:inline">Import Excel</span>
-                            <span className="sm:hidden">Import</span>
-                            <input
-                                type="file"
-                                accept=".xlsx, .xls"
-                                className="hidden"
-                                onChange={(e) => {
-                                    if (e.target.files && e.target.files.length > 0) {
-                                        console.log("Excel file selected:", e.target.files[0].name);
-                                        // Reset value to allow selecting the same file again
-                                        e.target.value = "";
-                                    }
-                                }}
-                            />
-                        </label>
+                        <>
+                            <button
+                                onClick={downloadExcelTemplate}
+                                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 hover:bg-neutral-100 text-neutral-700 h-10 px-4 py-2 cursor-pointer border border-neutral-200 shadow-sm"
+                            >
+                                <Download className="h-4 w-4 shrink-0" />
+                                <span className="hidden sm:inline">Download Template</span>
+                            </button>
+                            <label className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-neutral-900 text-neutral-50 hover:bg-neutral-900/90 h-10 px-4 py-2 cursor-pointer shadow-sm">
+                                <Upload className="h-4 w-4 shrink-0" />
+                                <span className="hidden sm:inline">Import Excel</span>
+                                <span className="sm:hidden">Import</span>
+                                <input
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    className="hidden"
+                                    onChange={async (e) => {
+                                        if (e.target.files && e.target.files.length > 0) {
+                                            const file = e.target.files[0];
+                                            const result = await processExcelImport(file);
+                                            if (result.success) {
+                                                toast.success(`Imported successfully!`, {
+                                                    description: `${result.componentsAdded} components and ${result.gatewaysAdded} gateways added.`,
+                                                });
+                                                setTimeout(() => window.location.reload(), 1000);
+                                            } else {
+                                                toast.error("Import Failed", { description: result.error });
+                                            }
+                                            e.target.value = "";
+                                        }
+                                    }}
+                                />
+                            </label>
+                        </>
                     )}
                 </div>
             </div>
