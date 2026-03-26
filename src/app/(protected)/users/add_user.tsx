@@ -88,7 +88,7 @@ export function AddUserDialog({
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-amber-600 to-orange-500 text-white shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-400">
+                <Button className="bg-neutral-950 hover:bg-neutral-800 text-white shadow-md transition-colors">
                     <Plus className="mr-2 h-4 w-4" />
                     Create Account
                 </Button>
@@ -170,7 +170,7 @@ export function AddUserDialog({
                             </Button>
                             <Button
                                 type="submit"
-                                className="bg-gradient-to-r from-amber-600 to-orange-500 text-white hover:from-amber-500 hover:to-orange-400"
+                                className="bg-neutral-950 hover:bg-neutral-800 text-white transition-colors"
                             >
                                 Create User
                             </Button>
