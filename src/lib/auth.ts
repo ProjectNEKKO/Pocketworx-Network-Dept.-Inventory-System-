@@ -4,30 +4,38 @@ const ROLE_KEY = "pwx_role";
 export type UserRole = "admin" | "co-admin" | "user";
 
 export async function login(email: string, password: string): Promise<boolean> {
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // IMPORTANT: Let browser handle the secure HttpOnly cookie gracefully
+        body: JSON.stringify({ email, password }),
+    });
 
-    // Simulate basic backend validation
-    if (password === "wrong") {
-        throw new Error("Invalid email or password");
+    if (!res.ok) {
+        // The API returns { error: "..." }
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Invalid credentials");
     }
 
-    // Assign role: emails containing "admin" → admin, everything else → user
-    const lowerEmail = email.toLowerCase();
-    const role: UserRole = lowerEmail.includes("co-admin") || lowerEmail.includes("coadmin")
-        ? "co-admin"
-        : lowerEmail.includes("admin")
-        ? "admin"
-        : "user";
-
+    const data = await res.json();
+    
+    // Fallback UI hints strictly for client-side layout flashing protection
+    // Real security relies on the HttpOnly cookie we just set
     if (typeof window !== "undefined") {
         localStorage.setItem(AUTH_KEY, "true");
-        localStorage.setItem(ROLE_KEY, role);
+        localStorage.setItem(ROLE_KEY, data.role || "user");
     }
+    
     return true;
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
+    try {
+        await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+        console.error("Logout request failed", e);
+    }
+    
     if (typeof window !== "undefined") {
         localStorage.removeItem(AUTH_KEY);
         localStorage.removeItem(ROLE_KEY);
@@ -44,7 +52,7 @@ export function isAuthenticated(): boolean {
 export function getRole(): UserRole {
     if (typeof window !== "undefined") {
         const role = localStorage.getItem(ROLE_KEY);
-        if (role === "admin" || role === "co-admin" || role === "user") return role;
+        if (role === "admin" || role === "co-admin" || role === "user") return role as UserRole;
     }
     return "user";
 }

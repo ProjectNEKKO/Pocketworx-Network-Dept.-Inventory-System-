@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,23 @@ export default function LoginPage() {
     const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Client-side lockout state
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [lockoutTime, setLockoutTime] = useState<number | null>(null);
+
+    const MAX_FAILED_ATTEMPTS = 5;
+    const LOCKOUT_DURATION_MS = 30000;
+
+    useEffect(() => {
+        if (lockoutTime && Date.now() < lockoutTime) {
+            const timer = setTimeout(() => {
+                setLockoutTime(null);
+                setFailedAttempts(0);
+            }, lockoutTime - Date.now());
+            return () => clearTimeout(timer);
+        }
+    }, [lockoutTime]);
 
     const {
         register,
@@ -36,21 +53,41 @@ export default function LoginPage() {
     });
 
     const onSubmit = async (data: LoginFormValues) => {
+        if (lockoutTime && Date.now() < lockoutTime) {
+            setError("root", {
+                type: "manual",
+                message: "Too many failed attempts. Please try again later.",
+            });
+            return;
+        }
+
         setIsLoading(true);
 
         try {
             await login(data.email, data.password);
 
             if (data.rememberMe) {
-                // In a real app, this might set a persistent cookie or local storage token
+                // UI hint only; the real secure JWT cookie handles persistence securely now
                 localStorage.setItem("pwx_remember_me", "true");
             }
 
             router.push("/dashboard");
         } catch (error: unknown) {
+            const newAttempts = failedAttempts + 1;
+            setFailedAttempts(newAttempts);
+
+            if (newAttempts >= MAX_FAILED_ATTEMPTS) {
+                setLockoutTime(Date.now() + LOCKOUT_DURATION_MS);
+            }
+            
+            // Standard generic error response but pass rate limit messages through
+            const errorMessage = error instanceof Error && error.message.includes("attempts") 
+                ? error.message 
+                : "Invalid credentials";
+
             setError("root", {
                 type: "manual",
-                message: error instanceof Error ? error.message : "An unexpected error occurred during login.",
+                message: errorMessage,
             });
             setIsLoading(false);
         }
@@ -164,7 +201,7 @@ export default function LoginPage() {
 
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || !!lockoutTime}
                             className="w-full py-4 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-lg shadow-primary/20 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-70 disabled:active:scale-100 disabled:cursor-not-allowed"
                         >
                             <span>{isLoading ? "Signing In…" : "Sign In"}</span>
