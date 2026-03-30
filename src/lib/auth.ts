@@ -1,7 +1,7 @@
 const AUTH_KEY = "pwx_authenticated";
 const ROLE_KEY = "pwx_role";
 
-export type UserRole = "admin" | "user";
+export type UserRole = "admin" | "co-admin" | "user";
 
 export async function login(email: string, password: string): Promise<boolean> {
     // Simulate network delay
@@ -13,7 +13,12 @@ export async function login(email: string, password: string): Promise<boolean> {
     }
 
     // Assign role: emails containing "admin" → admin, everything else → user
-    const role: UserRole = email.toLowerCase().includes("admin") ? "admin" : "user";
+    const lowerEmail = email.toLowerCase();
+    const role: UserRole = lowerEmail.includes("co-admin") || lowerEmail.includes("coadmin")
+        ? "co-admin"
+        : lowerEmail.includes("admin")
+        ? "admin"
+        : "user";
 
     if (typeof window !== "undefined") {
         localStorage.setItem(AUTH_KEY, "true");
@@ -39,7 +44,7 @@ export function isAuthenticated(): boolean {
 export function getRole(): UserRole {
     if (typeof window !== "undefined") {
         const role = localStorage.getItem(ROLE_KEY);
-        if (role === "admin" || role === "user") return role;
+        if (role === "admin" || role === "co-admin" || role === "user") return role;
     }
     return "user";
 }

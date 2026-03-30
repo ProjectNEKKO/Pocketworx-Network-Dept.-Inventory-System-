@@ -79,7 +79,7 @@ export default function ProfilePage() {
             <div className="bg-white border border-neutral-100 rounded-3xl shadow-sm overflow-hidden">
 
                 {/* Top banner */}
-                <div className="relative h-28 bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-900 overflow-hidden">
+                <div className="relative h-28 bg-black overflow-hidden">
                     <div className="absolute -top-8 -right-8 h-40 w-40 rounded-full bg-blue-500/20 blur-2xl" />
                     <div className="absolute -bottom-8 left-12 h-32 w-32 rounded-full bg-indigo-500/25 blur-2xl" />
                     <div
@@ -115,7 +115,7 @@ export default function ProfilePage() {
                         {!isEditing ? (
                             <Button
                                 onClick={() => setIsEditing(true)}
-                                className="bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white h-9 px-4 rounded-xl font-bold text-sm gap-2 shadow-sm transition-all hover:-translate-y-0.5"
+                                className="bg-black hover:bg-neutral-800 text-white h-9 px-4 rounded-xl font-bold text-sm gap-2 shadow-sm transition-all hover:-translate-y-0.5"
                             >
                                 <Edit2 className="h-3.5 w-3.5" /> Edit Profile
                             </Button>
@@ -243,7 +243,7 @@ export default function ProfilePage() {
                             />
                         </div>
 
-                        <Button className="bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white h-10 px-5 rounded-xl font-bold text-sm gap-2 shadow-sm mt-1">
+                        <Button className="bg-black hover:bg-neutral-800 text-white h-10 px-5 rounded-xl font-bold text-sm gap-2 shadow-sm mt-1">
                             <KeyRound className="h-4 w-4" /> Update Password
                         </Button>
                     </div>
