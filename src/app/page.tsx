@@ -8,17 +8,17 @@ export default function LandingPage() {
             <header className="fixed top-0 z-50 flex w-full items-center justify-between border-b border-neutral-200/50 bg-white/80 px-6 py-4 backdrop-blur-md">
                 <div className="flex items-center gap-3 group cursor-pointer relative z-50">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12">
-                        <img src="/logo.png" alt="Pocketworx" className="h-full w-full object-contain drop-shadow-sm" />
+                        <img src="/logo.png" alt="Packetworx" className="h-full w-full object-contain drop-shadow-sm" />
                     </div>
                     <div>
-                        <span className="text-lg font-bold tracking-tight text-neutral-900 group-hover:text-blue-600 transition-colors">Pocketworx</span>
+                        <span className="text-lg font-bold tracking-tight text-neutral-900 group-hover:text-blue-600 transition-colors">Packetworx</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
                     <Link href="/login" className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors">
                         Sign In
                     </Link>
-                    <Link href="/dashboard" className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-all flex items-center gap-2">
+                    <Link href="/login" className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-600 transition-all flex items-center gap-2">
                         Get Started <ArrowRight className="h-4 w-4" />
                     </Link>
                 </div>
@@ -42,18 +42,18 @@ export default function LandingPage() {
                         <img src="/logo.png" alt="Logo" className="relative z-10 h-full w-full object-contain drop-shadow-2xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-12" />
                     </div>
 
-                    <span className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 mb-8 mt-2">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-medium text-orange-600 mb-8 mt-2">
                         <Zap className="h-4 w-4" /> PWX Enterprise
                     </span>
                     <h1 className="mx-auto max-w-4xl text-5xl font-extrabold tracking-tight text-neutral-900 sm:text-7xl mb-8 leading-tight">
                         Intelligent Network <br className="hidden sm:block" /> 
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Inventory Management</span>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-600">Inventory Management</span>
                     </h1>
                     <p className="mx-auto max-w-2xl text-lg text-neutral-600 mb-10 leading-relaxed">
                         Streamline your infrastructure with the ultimate command center. Track gateways, manage components, monitor stock levels, and provision hardware instantly.
                     </p>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Link href="/dashboard" className="w-full sm:w-auto rounded-xl bg-blue-600 px-8 py-4 text-base font-bold text-white shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2">
+                        <Link href="/login" className="w-full sm:w-auto rounded-xl bg-orange-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-orange-500/30 hover:bg-orange-600 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-2">
                             Open Dashboard <ArrowRight className="h-5 w-5" />
                         </Link>
                         <Link href="/login" className="w-full sm:w-auto rounded-xl bg-white px-8 py-4 text-base font-bold text-neutral-700 border border-neutral-200 shadow-sm hover:bg-neutral-50 transition-all flex items-center justify-center">

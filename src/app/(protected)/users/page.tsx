@@ -38,12 +38,12 @@ export default function UsersPage() {
 
     useEffect(() => {
         if (!ready) return;
-        if (role !== "admin") {
+        if (role !== "admin" && role !== "co-admin") {
             router.replace("/");
         }
     }, [ready, role, router]);
 
-    if (role !== "admin") return null;
+    if (role !== "admin" && role !== "co-admin") return null;
 
     const handleAddUser = (newUser: UserAccount) => {
         setUsers((prev) => [...prev, newUser]);
@@ -186,14 +186,18 @@ export default function UsersPage() {
                                             <Pencil className="h-3.5 w-3.5 text-neutral-500" />
                                             Edit Role
                                         </DropdownMenuItem>
-                                        <DropdownMenuSeparator className="bg-neutral-100" />
-                                        <DropdownMenuItem
-                                            className="flex items-center gap-2 text-sm text-red-600 cursor-pointer hover:bg-red-50 focus:bg-red-50"
-                                            onClick={() => handleDeleteUser(user.email)}
-                                        >
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                            Delete User
-                                        </DropdownMenuItem>
+                                        {role === "admin" && (
+                                            <>
+                                                <DropdownMenuSeparator className="bg-neutral-100" />
+                                                <DropdownMenuItem
+                                                    className="flex items-center gap-2 text-sm text-red-600 cursor-pointer hover:bg-red-50 focus:bg-red-50"
+                                                    onClick={() => handleDeleteUser(user.email)}
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                    Delete User
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>

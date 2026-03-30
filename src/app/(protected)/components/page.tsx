@@ -183,8 +183,8 @@ function ComponentDetailDialog({
                         </div>
                     </div>
 
-                    {/* ── ADMIN: full qty editor ── */}
-                    {role === "admin" && (
+                    {/* ── ADMIN / CO-ADMIN: full qty editor ── */}
+                    {(role === "admin" || role === "co-admin") && (
                         <>
                             <div className="space-y-2.5">
                                 <div className="flex items-center justify-between">
@@ -215,7 +215,7 @@ function ComponentDetailDialog({
                     )}
 
                     {/* ── USER: withdrawal request form ── */}
-                    {role !== "admin" && (
+                    {role === "user" && (
                         submitted ? (
                             <div className="flex flex-col items-center gap-3 py-4 text-center">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">

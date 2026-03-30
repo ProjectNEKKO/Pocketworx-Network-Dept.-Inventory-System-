@@ -43,9 +43,7 @@ const formSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    role: z.enum(["Co-Admin", "User"], {
-        required_error: "Please select a role",
-    }),
+    role: z.string().refine(val => ["Co-Admin", "User"].includes(val), "Please select a role"),
 });
 
 export function AddUserDialog({
@@ -70,7 +68,7 @@ export function AddUserDialog({
         onAdd({
             name: values.name,
             email: values.email,
-            role: values.role,
+            role: values.role as "Co-Admin" | "User",
             status: "Active",
         });
 
