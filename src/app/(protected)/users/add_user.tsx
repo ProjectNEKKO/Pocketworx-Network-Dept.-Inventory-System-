@@ -4,9 +4,10 @@ import { useState } from "react";
 import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import {
     Dialog,
     DialogContent,
@@ -37,6 +38,7 @@ export interface UserAccount {
     email: string;
     role: "Co-Admin" | "User";
     status: "Active" | "Inactive";
+    password?: string;
 }
 
 const formSchema = z.object({
@@ -49,9 +51,10 @@ const formSchema = z.object({
 export function AddUserDialog({
     onAdd,
 }: {
-    onAdd: (user: UserAccount) => void;
+    onAdd: (user: UserAccount) => Promise<void>;
 }) {
     const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -63,17 +66,24 @@ export function AddUserDialog({
         },
     });
 
-    function onSubmit(values: z.infer<typeof formSchema>) {
-        // In a real application, you would send this to the backend
-        onAdd({
-            name: values.name,
-            email: values.email,
-            role: values.role as "Co-Admin" | "User",
-            status: "Active",
-        });
-
-        form.reset();
-        setOpen(false);
+    async function onSubmit(values: z.infer<typeof formSchema>) {
+        setLoading(true);
+        try {
+            await onAdd({
+                name: values.name,
+                email: values.email,
+                password: values.password,
+                role: values.role as "Co-Admin" | "User",
+                status: "Active",
+            });
+            form.reset();
+            setOpen(false);
+            toast.success("User created successfully");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to create user");
+        } finally {
+            setLoading(false);
+        }
     }
 
     function handleOpenChange(newOpen: boolean) {
@@ -163,13 +173,16 @@ export function AddUserDialog({
                                 type="button"
                                 variant="outline"
                                 onClick={() => setOpen(false)}
+                                disabled={loading}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
+                                disabled={loading}
                                 className="bg-neutral-950 hover:bg-neutral-800 text-white transition-colors"
                             >
+                                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Create User
                             </Button>
                         </DialogFooter>

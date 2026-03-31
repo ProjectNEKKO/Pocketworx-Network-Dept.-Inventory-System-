@@ -26,112 +26,162 @@ export function downloadExcelTemplate() {
     XLSX.writeFile(wb, "Inventory_Import_Template.xlsx");
 }
 
+export interface ImportResult {
+    success: boolean;
+    components: { added: ComponentItem[]; updated: ComponentItem[]; };
+    gateways: { added: GatewayItem[]; updated: GatewayItem[]; };
+    finalComponents: ComponentItem[];
+    finalGateways: GatewayItem[];
+    errors: string[];
+    error?: string; // Critical/Global error
+}
+
 export async function processExcelImport(
     file: File,
-    existingComponentSkus: Set<string>,
-    existingGatewaySkus: Set<string>
-): Promise<{
-    success: boolean;
-    componentsAdded: number;
-    gatewaysAdded: number;
-    newComponents: ComponentItem[];
-    newGateways: GatewayItem[];
-    error?: string;
-}> {
+    currentComponents: ComponentItem[],
+    currentGateways: GatewayItem[]
+): Promise<ImportResult> {
     try {
         const buffer = await file.arrayBuffer();
         const wb = XLSX.read(buffer, { type: "array" });
 
-        let newComponentsCount = 0;
-        let newGatewaysCount = 0;
+        const addedComponents: ComponentItem[] = [];
+        const updatedComponents: ComponentItem[] = [];
+        const addedGateways: GatewayItem[] = [];
+        const updatedGateways: GatewayItem[] = [];
+        const importErrors: string[] = [];
+
+        // Prepopulate maps with current data
+        const compMap = new Map<string, ComponentItem>();
+        for (const c of currentComponents) {
+            const wh = c.warehouse || "PWX IoT Hub";
+            compMap.set(`${c.sku.toLowerCase()}-${wh.toLowerCase()}`, { ...c });
+        }
+
+        const gwMap = new Map<string, GatewayItem>();
+        for (const g of currentGateways) {
+            const loc = g.location || "PWX IoT Hub";
+            gwMap.set(`${g.sku.toLowerCase()}-${loc.toLowerCase()}`, { ...g });
+        }
 
         // --- Process Components ---
         const wsComponents = wb.Sheets["Components"];
-        const newItems: ComponentItem[] = [];
         if (wsComponents) {
             const rawComponents = XLSX.utils.sheet_to_json<any>(wsComponents);
-            const trackedSkus = new Set(existingComponentSkus);
-
+            
+            let rowIndex = 2; // header is row 1 conceptually
             for (const row of rawComponents) {
                 const name = row["Name"] || row["name"];
                 const sku = String(row["SKU"] || row["sku"] || row["Part Number"] || "").trim();
                 const category = row["Category"] || row["category"];
-                const stock = Number(row["Stock"] || row["Current Stock"] || row["stock"] || 0);
-                const min = Number(row["Min Stock"] || row["Critical Stock"] || row["min"] || 0);
-                const warehouse = row["Warehouse"] || row["warehouse"] || "PWX IoT Hub";
+                let stock = Number(row["Stock"] || row["Current Stock"] || row["stock"]);
+                let min = Number(row["Min Stock"] || row["Critical Stock"] || row["min"]);
+                const warehouse = String(row["Warehouse"] || row["warehouse"] || "PWX IoT Hub").trim();
 
-                if (name && sku) {
-                    const normalizedSku = sku.toLowerCase();
-                    if (!trackedSkus.has(normalizedSku)) {
-                        newItems.push({
-                            name: String(name),
-                            sku: sku,
-                            category: String(category || "Accessories"),
-                            stock: isNaN(stock) ? 0 : stock,
-                            min: isNaN(min) ? 0 : min,
-                            warehouse: String(warehouse),
-                        });
-                        trackedSkus.add(normalizedSku);
-                    }
+                if (!name || !sku) {
+                    importErrors.push(`Components Row ${rowIndex}: Missing required 'Name' or 'SKU'.`);
+                    rowIndex++;
+                    continue;
                 }
+
+                if (isNaN(stock) || stock < 0) stock = 0;
+                if (isNaN(min) || min < 0) min = 0;
+
+                const lookupKey = `${sku.toLowerCase()}-${warehouse.toLowerCase()}`;
+                
+                if (compMap.has(lookupKey)) {
+                    // Update: Add quantities
+                    const existing = compMap.get(lookupKey)!;
+                    existing.stock += stock;
+                    if (min > existing.min) existing.min = min; // Optionally bump min
+                    updatedComponents.push({ ...existing }); // record update copy
+                    compMap.set(lookupKey, existing); // commit back to map
+                } else {
+                    // Add new
+                    const newItem: ComponentItem = {
+                        name: String(name),
+                        sku: sku,
+                        category: String(category || "Accessories"),
+                        stock: stock,
+                        min: min,
+                        warehouse: warehouse,
+                    };
+                    addedComponents.push(newItem);
+                    compMap.set(lookupKey, newItem);
+                }
+                rowIndex++;
             }
-            newComponentsCount = newItems.length;
         }
 
         // --- Process Gateways ---
         const wsGateways = wb.Sheets["Gateways"];
-        const newGateways: GatewayItem[] = [];
         if (wsGateways) {
             const rawGateways = XLSX.utils.sheet_to_json<any>(wsGateways);
-            const trackedGwSkus = new Set(existingGatewaySkus);
 
+            let rowIndex = 2;
             for (const row of rawGateways) {
                 const name = row["Name"] || row["name"];
                 const sku = String(row["SKU"] || row["sku"] || "").trim();
-                const location = row["Location"] || row["location"] || row["Warehouse"] || "PWX IoT Hub";
-                const quantity = Number(row["Quantity"] || row["quantity"] || row["Qty"] || 0);
+                const location = String(row["Location"] || row["location"] || row["Warehouse"] || "PWX IoT Hub").trim();
+                let quantity = Number(row["Quantity"] || row["quantity"] || row["Qty"]);
 
-                if (name && sku) {
-                    const normalizedSku = sku.toLowerCase();
-                    if (!trackedGwSkus.has(normalizedSku)) {
-                        newGateways.push({
-                            id: String(name),
-                            sku: sku,
-                            location: String(location),
-                            quantity: isNaN(quantity) ? 0 : quantity
-                        });
-                        trackedGwSkus.add(normalizedSku);
-                    }
+                if (!name || !sku) {
+                    importErrors.push(`Gateways Row ${rowIndex}: Missing required 'Name' or 'SKU'.`);
+                    rowIndex++;
+                    continue;
                 }
+
+                if (isNaN(quantity) || quantity < 0) quantity = 0;
+
+                const lookupKey = `${sku.toLowerCase()}-${location.toLowerCase()}`;
+
+                if (gwMap.has(lookupKey)) {
+                    const existing = gwMap.get(lookupKey)!;
+                    existing.quantity += quantity;
+                    updatedGateways.push({ ...existing });
+                    gwMap.set(lookupKey, existing);
+                } else {
+                    const newItem: GatewayItem = {
+                        id: String(name),
+                        sku: sku,
+                        location: location,
+                        quantity: quantity
+                    };
+                    addedGateways.push(newItem);
+                    gwMap.set(lookupKey, newItem);
+                }
+                rowIndex++;
             }
-            newGatewaysCount = newGateways.length;
         }
 
         if (!wsComponents && !wsGateways) {
             return {
                 success: false,
-                componentsAdded: 0,
-                gatewaysAdded: 0,
-                newComponents: [],
-                newGateways: [],
+                components: { added: [], updated: [] },
+                gateways: { added: [], updated: [] },
+                finalComponents: [],
+                finalGateways: [],
+                errors: [],
                 error: "Invalid Excel format. Expected 'Components' or 'Gateways' sheets."
             };
         }
 
         return {
             success: true,
-            componentsAdded: newComponentsCount,
-            gatewaysAdded: newGatewaysCount,
-            newComponents: newItems,
-            newGateways: newGateways
+            components: { added: addedComponents, updated: updatedComponents },
+            gateways: { added: addedGateways, updated: updatedGateways },
+            finalComponents: Array.from(compMap.values()),
+            finalGateways: Array.from(gwMap.values()),
+            errors: importErrors
         };
     } catch (e: any) {
         return {
             success: false,
-            componentsAdded: 0,
-            gatewaysAdded: 0,
-            newComponents: [],
-            newGateways: [],
+            components: { added: [], updated: [] },
+            gateways: { added: [], updated: [] },
+            finalComponents: [],
+            finalGateways: [],
+            errors: [],
             error: e.message || "An error occurred while parsing the file."
         };
     }

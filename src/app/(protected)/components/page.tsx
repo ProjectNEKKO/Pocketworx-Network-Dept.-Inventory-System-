@@ -51,7 +51,7 @@ function ComponentDetailDialog({
     comp: ComponentItem | null;
     open: boolean;
     onClose: () => void;
-    onUpdate: (sku: string, newStock: number, imageUrl?: string, newName?: string) => void;
+    onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string) => void;
     role: string;
 }) {
     const [inputValue, setInputValue] = useState<string>("");
@@ -87,7 +87,7 @@ function ComponentDetailDialog({
 
     function handleSave() {
         if (!comp) return;
-        onUpdate(comp.sku, safeQty, imageUrl, nameValue);
+        onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue);
         onClose();
     }
 
@@ -299,10 +299,10 @@ export default function ComponentsPage() {
         setDialogOpen(true);
     };
 
-    const handleUpdate = (sku: string, newStock: number, imageUrl?: string, newName?: string) => {
+    const handleUpdate = (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string) => {
         setComponents((prev) => {
             const next = prev.map((c) =>
-                c.sku === sku
+                (c.sku === sku && c.warehouse === warehouse)
                     ? {
                           ...c,
                           stock: newStock,
@@ -321,9 +321,9 @@ export default function ComponentsPage() {
         setSelectedComp(null);
     };
 
-    const handleDelete = (e: React.MouseEvent, sku: string) => {
+    const handleDelete = (e: React.MouseEvent, sku: string, warehouse: string | undefined) => {
         e.stopPropagation();
-        setComponents(prev => prev.filter(c => c.sku !== sku));
+        setComponents(prev => prev.filter(c => !(c.sku === sku && c.warehouse === warehouse)));
     };
 
     const filtered = components.reduce((acc, c) => {
@@ -414,7 +414,7 @@ export default function ComponentsPage() {
 
                             return (
                                 <div
-                                    key={comp.sku}
+                                    key={`${comp.sku}-${comp.warehouse}`}
                                     className="flex items-center justify-between rounded-lg border border-neutral-100 bg-neutral-50/50 p-4 transition-all hover:bg-violet-50/40 hover:border-violet-200 hover:shadow-sm cursor-pointer select-none"
                                     onClick={() => handleRowClick(comp)}
                                     role="button"
@@ -463,7 +463,7 @@ export default function ComponentsPage() {
                                         </Badge>
                                         {role === "admin" && (
                                             <button
-                                                onClick={(e) => handleDelete(e, comp.sku)}
+                                                onClick={(e) => handleDelete(e, comp.sku, comp.warehouse)}
                                                 className="ml-1 p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"
                                                 title="Delete component"
                                             >
