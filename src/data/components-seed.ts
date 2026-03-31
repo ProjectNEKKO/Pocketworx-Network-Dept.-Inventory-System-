@@ -1,7 +1,6 @@
 import type { ComponentItem } from "@/app/(protected)/components/add_components";
 
-/** Default catalog used before any `localStorage` snapshot exists. */
-export const COMPONENT_CATALOG_SEED: ComponentItem[] = [
+const baseItems = [
     { name: "10ft RSC Pipe 1.5inch", sku: "PIPE-RSC-10FT-15", stock: 50, min: 100, category: "Hardware" },
     { name: "2-Pin Male Plug", sku: "ELEC-2PIN-M", stock: 200, min: 100, category: "Accessories" },
     { name: "2 hole C Clamp 1-1/2' RGD", sku: "HW-CCLAMP-15", stock: 30, min: 100, category: "Accessories" },
@@ -42,7 +41,9 @@ export const COMPONENT_CATALOG_SEED: ComponentItem[] = [
     { name: "Shieldcon LQT Galvanized Flexible Conduit (Soft) 1/2\"x50m Roll", sku: "HW-FLEX-COND-12", stock: 50, min: 100, category: "Hardware" },
     { name: "Tofu Heatsink (White)", sku: "HS-TOFU-WHT", stock: 25, min: 100, category: "Hardware" },
     { name: "U BOLTS 1 1/2 \"", sku: "HW-UBOLT-15", stock: 45, min: 100, category: "Accessories" },
-].map((item, index) => ({
-    ...item,
-    warehouse: index % 2 === 0 ? "PWX IoT Hub" : "Jenny's",
-}));
+];
+
+export const COMPONENT_CATALOG_SEED: ComponentItem[] = [
+    ...baseItems.map(item => ({ ...item, warehouse: "PWX IoT Hub" })),
+    ...baseItems.map(item => ({ ...item, warehouse: "Jenny's" }))
+] as ComponentItem[];

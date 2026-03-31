@@ -27,12 +27,22 @@ export function CatalogPickerDialog({
 
     const filtered = useMemo(() => {
         const t = q.trim().toLowerCase();
-        if (!t) return catalog;
-        return catalog.filter(
-            (c) =>
+        let items = catalog;
+        if (t) {
+            items = items.filter((c) =>
                 c.name.toLowerCase().includes(t) ||
                 c.sku.toLowerCase().includes(t)
-        );
+            );
+        }
+        
+        // Deduplicate by sku so we don't render multiple identical items 
+        // that just differ by warehouse
+        const seen = new Set<string>();
+        return items.filter((c) => {
+            if (seen.has(c.sku)) return false;
+            seen.add(c.sku);
+            return true;
+        });
     }, [catalog, q]);
 
     return (

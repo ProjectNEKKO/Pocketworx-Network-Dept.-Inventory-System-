@@ -24,11 +24,11 @@ const loginSchema = z.object({
 export async function POST(req: NextRequest) {
     try {
         const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
-        
+
         // 1. Rate Limiting Check to prevent brute force
         const now = Date.now();
         const record = rateLimitMap.get(ip) || { count: 0, windowStart: now };
-        
+
         if (now - record.windowStart > WINDOW_MS) {
             record.count = 0;
             record.windowStart = now;
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        
+
         // 2. Validate input syntactically without processing directly
         const result = loginSchema.safeParse(body);
         if (!result.success) {
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
             rateLimitMap.set(ip, record);
             console.warn(`[AUTH] Failed lookup for user: ${email}`);
             // Generic Error
-            return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+            return NextResponse.json({ error: "Account not found" }, { status: 401 });
         }
 
         // 4. Secure Password execution via strict timing cryptography (bcrypt)

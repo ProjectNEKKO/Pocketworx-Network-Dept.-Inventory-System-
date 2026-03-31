@@ -18,9 +18,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
     const router = useRouter();
-    const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    
+
     // Client-side lockout state
     const [failedAttempts, setFailedAttempts] = useState(0);
     const [lockoutTime, setLockoutTime] = useState<number | null>(null);
@@ -79,10 +78,10 @@ export default function LoginPage() {
             if (newAttempts >= MAX_FAILED_ATTEMPTS) {
                 setLockoutTime(Date.now() + LOCKOUT_DURATION_MS);
             }
-            
+
             // Standard generic error response but pass rate limit messages through
-            const errorMessage = error instanceof Error && error.message.includes("attempts") 
-                ? error.message 
+            const errorMessage = error instanceof Error && error.message.includes("attempts")
+                ? error.message
                 : "Invalid credentials";
 
             setError("root", {
@@ -169,20 +168,12 @@ export default function LoginPage() {
                                 </div>
                                 <input
                                     id="password"
-                                    type={showPassword ? "text" : "password"}
+                                    type="password"
                                     placeholder="••••••••"
                                     {...register("password")}
                                     autoComplete="current-password"
-                                    className={`w-full pl-11 pr-12 py-4 bg-slate-50 border rounded-xl focus:ring-2 outline-none transition-all text-slate-900 placeholder:text-slate-400 ${errors.password ? 'border-red-400 focus:ring-red-200 focus:border-red-500' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
+                                    className={`w-full pl-11 pr-4 py-4 bg-slate-50 border rounded-xl focus:ring-2 outline-none transition-all text-slate-900 placeholder:text-slate-400 ${errors.password ? 'border-red-400 focus:ring-red-200 focus:border-red-500' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                                    aria-label={showPassword ? "Hide password" : "Show password"}
-                                >
-                                    <span className="material-symbols-outlined text-xl">{showPassword ? "visibility_off" : "visibility"}</span>
-                                </button>
                             </div>
                             {errors.password && (
                                 <p className="text-red-500 text-xs font-medium ml-1 mt-1">{errors.password.message}</p>

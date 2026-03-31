@@ -18,9 +18,11 @@ const pool = new Pool({
 // Strict typing for retrieval mapped exactly to constraints in schema.sql
 export type User = {
     id: number;
+    name: string | null;
     email: string;
     password_hash: string;
     role: 'admin' | 'co-admin' | 'user';
+    status: 'Active' | 'Inactive';
     created_at?: Date;
     updated_at?: Date;
 };
@@ -34,7 +36,7 @@ export type User = {
 export async function getUserByEmail(email: string): Promise<User | null> {
     try {
         const queryText = `
-            SELECT id, email, password_hash, role
+            SELECT id, name, email, password_hash, role, status
             FROM users
             WHERE email = $1;
         `;
@@ -44,7 +46,72 @@ export async function getUserByEmail(email: string): Promise<User | null> {
         return rows[0] || null;
     } catch (error) {
         console.error("[CRITICAL DB EXCEPTION] Failed validating constraints for user lookup:", error);
-        // Do not leak inner database schema syntax rules directly if parsing errors occur
         throw new Error("Internal Database Disconnect");
+    }
+}
+
+export async function getAllUsers(): Promise<Omit<User, 'password_hash'>[]> {
+    try {
+        const queryText = `
+            SELECT id, name, email, role, status, created_at, updated_at
+            FROM users
+            ORDER BY id ASC;
+        `;
+        
+        const { rows } = await pool.query(queryText);
+        return rows;
+    } catch (error) {
+        console.error("Failed fetching all users:", error);
+        throw new Error("Internal Database Disconnect");
+    }
+}
+
+export async function createUser(
+    name: string, 
+    email: string, 
+    passwordHash: string, 
+    role: string, 
+    status: string = 'Active'
+): Promise<User> {
+    try {
+        const queryText = `
+            INSERT INTO users (name, email, password_hash, role, status)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, name, email, role, status, created_at, updated_at;
+        `;
+        
+        const { rows } = await pool.query(queryText, [name, email.toLowerCase(), passwordHash, role, status]);
+        return rows[0];
+    } catch (error: any) {
+        console.error("Failed creating user:", error);
+        if (error.code === '23505') { // unique_violation postgres code
+            throw new Error("User with this email already exists");
+        }
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function updateUserRole(email: string, role: string): Promise<void> {
+    try {
+        const queryText = `
+            UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE email = $2;
+        `;
+        await pool.query(queryText, [role, email.toLowerCase()]);
+    } catch (error) {
+        console.error("Failed updating user role:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function deleteUserByEmail(email: string): Promise<void> {
+    try {
+        const queryText = `
+            DELETE FROM users WHERE email = $1;
+        `;
+        await pool.query(queryText, [email.toLowerCase()]);
+    } catch (error) {
+        console.error("Failed deleting user:", error);
+        throw new Error("Internal Database Error");
     }
 }
