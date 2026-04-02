@@ -82,7 +82,10 @@ export function Sidebar({
             )}
         >
             {/* Logo Area */}
-            <div className="flex h-16 items-center gap-3 px-4">
+            <Link 
+                href="/dashboard" 
+                className="flex h-16 items-center gap-3 px-4 hover:opacity-80 transition-opacity cursor-pointer"
+            >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden">
                     <img src="/logo.png" alt="PWX Logo" className="h-full w-full object-contain" />
                 </div>
@@ -96,7 +99,7 @@ export function Sidebar({
                         </span>
                     </div>
                 )}
-            </div>
+            </Link>
 
             <Separator className="bg-neutral-200" />
 
@@ -215,7 +218,10 @@ export function MobileSidebar() {
 
     return (
         <div className="flex h-full flex-col">
-            <div className="flex h-16 items-center gap-3 px-4">
+            <Link 
+                href="/dashboard"
+                className="flex h-16 items-center gap-3 px-4 hover:opacity-80 transition-opacity cursor-pointer"
+            >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden">
                     <img src="/logo.png" alt="PWX Logo" className="h-full w-full object-contain" />
                 </div>
@@ -223,7 +229,7 @@ export function MobileSidebar() {
                     <p className="text-sm font-bold text-neutral-900">PWX Inventory</p>
                     <p className="text-[11px] text-neutral-500">Management System</p>
                 </div>
-            </div>
+            </Link>
 
             <Separator className="bg-neutral-200" />
 

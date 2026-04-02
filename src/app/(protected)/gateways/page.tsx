@@ -80,15 +80,12 @@ function GatewayDetailDialog({
         onClose();
     }
 
-    function handleSendRequest() {
+    async function handleSendRequest() {
         if (!gw) return;
         const qty = parseInt(reqQty, 10);
         if (isNaN(qty) || qty <= 0) return;
-        const username = typeof window !== "undefined"
-            ? (localStorage.getItem("pwx_username") ?? "User")
-            : "User";
-        addRequest({ type: "gateway", itemSku: gw.sku, itemName: gw.id, requestedQty: qty, requestedBy: username });
-        setSubmitted(true);
+        const result = await addRequest({ type: "gateway", itemSku: gw.sku, itemName: gw.id, requestedQty: qty });
+        if (result) setSubmitted(true);
     }
 
     function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {

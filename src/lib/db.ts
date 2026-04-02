@@ -27,6 +27,27 @@ export type User = {
     updated_at?: Date;
 };
 
+export type StockRequest = {
+    id: number;
+    type: 'component' | 'gateway';
+    item_sku: string;
+    item_name: string;
+    requested_qty: number;
+    requested_by: string; // email
+    status: 'pending' | 'accepted' | 'declined';
+    created_at: Date;
+};
+
+export type Notification = {
+    id: number;
+    user_id: number | null;
+    message: string;
+    type: string;
+    related_id: number | null;
+    is_read: boolean;
+    created_at: Date;
+};
+
 /**
  * Executes a dedicated secure query evaluating the user records by email constraints.
  * 
@@ -112,6 +133,96 @@ export async function deleteUserByEmail(email: string): Promise<void> {
         await pool.query(queryText, [email.toLowerCase()]);
     } catch (error) {
         console.error("Failed deleting user:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+// --- Stock Requests ---
+
+export async function createStockRequest(
+    type: string,
+    itemSku: string,
+    itemName: string,
+    requestedQty: number,
+    requestedBy: string
+): Promise<StockRequest> {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const queryText = `
+            INSERT INTO stock_requests (type, item_sku, item_name, requested_qty, requested_by)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *;
+        `;
+        const { rows } = await client.query(queryText, [type, itemSku, itemName, requestedQty, requestedBy.toLowerCase()]);
+        const newRequest = rows[0];
+
+        // Create notification for admins
+        const notificationMsg = `${requestedBy} requested ${requestedQty} units of ${itemName} (${itemSku})`;
+        await client.query(`
+            INSERT INTO notifications (message, type, related_id)
+            VALUES ($1, $2, $3)
+        `, [notificationMsg, 'stock_request', newRequest.id]);
+
+        await client.query('COMMIT');
+        return newRequest;
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("Failed creating stock request:", error);
+        throw new Error("Internal Database Error");
+    } finally {
+        client.release();
+    }
+}
+
+export async function getStockRequests(): Promise<StockRequest[]> {
+    try {
+        const { rows } = await pool.query("SELECT * FROM stock_requests ORDER BY created_at DESC");
+        return rows;
+    } catch (error) {
+        console.error("Failed fetching stock requests:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function updateStockRequestStatus(id: number, status: string): Promise<void> {
+    try {
+        await pool.query("UPDATE stock_requests SET status = $1 WHERE id = $2", [status, id]);
+    } catch (error) {
+        console.error("Failed updating stock request status:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+// --- Notifications ---
+
+export async function createNotification(message: string, type: string, relatedId: number | null = null): Promise<void> {
+    try {
+        await pool.query(`
+            INSERT INTO notifications (message, type, related_id)
+            VALUES ($1, $2, $3)
+        `, [message, type, relatedId]);
+    } catch (error) {
+        console.error("Failed creating notification:", error);
+    }
+}
+
+export async function getUnreadNotifications(): Promise<Notification[]> {
+    try {
+        const { rows } = await pool.query("SELECT * FROM notifications WHERE is_read = FALSE ORDER BY created_at DESC");
+        return rows;
+    } catch (error) {
+        console.error("Failed fetching notifications:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function markNotificationAsRead(id: number): Promise<void> {
+    try {
+        await pool.query("UPDATE notifications SET is_read = TRUE WHERE id = $1", [id]);
+    } catch (error) {
+        console.error("Failed marking notification as read:", error);
         throw new Error("Internal Database Error");
     }
 }

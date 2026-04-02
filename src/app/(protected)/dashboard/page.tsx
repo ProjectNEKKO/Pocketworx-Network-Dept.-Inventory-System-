@@ -284,15 +284,18 @@ export default function DashboardPage() {
     const [requests, setRequests] = useState<StockRequest[]>([]);
     const [importPreview, setImportPreview] = useState<ImportResult | null>(null);
 
-    const refreshRequests = useCallback(() => setRequests(loadRequests()), []);
+    const refreshRequests = useCallback(async () => {
+        const data = await loadRequests();
+        setRequests(data);
+    }, []);
     useEffect(() => {
         refreshRequests();
-        const id = setInterval(refreshRequests, 10_000);
+        const id = setInterval(refreshRequests, 3_000);
         return () => clearInterval(id);
     }, [refreshRequests]);
     useEffect(() => { if (notifOpen) refreshRequests(); }, [notifOpen, refreshRequests]);
 
-    function handleAcceptReq(req: StockRequest) {
+    async function handleAcceptReq(req: StockRequest) {
         if (req.type === "component") {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const next = loadComponentCatalog(COMPONENT_CATALOG_SEED).map((c: any) =>
@@ -306,12 +309,12 @@ export default function DashboardPage() {
             );
             saveGwCatalog(next);
         }
-        updateRequestStatus(req.id, "accepted");
-        refreshRequests();
+        await updateRequestStatus(req.id, "accepted");
+        await refreshRequests();
     }
-    function handleDeclineReq(req: StockRequest) {
-        updateRequestStatus(req.id, "declined");
-        refreshRequests();
+    async function handleDeclineReq(req: StockRequest) {
+        await updateRequestStatus(req.id, "declined");
+        await refreshRequests();
     }
 
     const pendingCount = requests.filter(r => r.status === "pending").length;
