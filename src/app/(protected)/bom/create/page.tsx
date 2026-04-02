@@ -71,8 +71,11 @@ interface ComponentRow {
     catalogSku?: string;
 }
 
+// Helper to generate a unique ID (client-safe for first render if needed)
+const generateId = () => (typeof window !== "undefined" ? crypto.randomUUID() : "TEMP-ID");
+
 const emptyComponent = (lineNumber: number): ComponentRow => ({
-    id: crypto.randomUUID(),
+    id: generateId(),
     lineNumber,
     level: 1,
     partNumber: "",
@@ -88,7 +91,7 @@ const emptyComponent = (lineNumber: number): ComponentRow => ({
 
 function normalizeLoadedRow(r: StoredComponentRow, index: number): ComponentRow {
     return {
-        id: r.id || crypto.randomUUID(),
+        id: r.id || generateId(),
         lineNumber: r.lineNumber || index + 1,
         level: r.level ?? 1,
         partNumber: r.partNumber ?? "",
@@ -127,9 +130,14 @@ function CreateBOMPageInner() {
     const [description, setDescription] = useState("");
 
     // Step 2 state — Component Rows
-    const [components, setComponents] = useState<ComponentRow[]>([
-        emptyComponent(1),
-    ]);
+    const [components, setComponents] = useState<ComponentRow[]>([]);
+
+    useEffect(() => {
+        // Hydrate initial component on client-only mount to avoid SSR mismatches
+        if (components.length === 0) {
+            setComponents([emptyComponent(1)]);
+        }
+    }, [components]);
 
     const [catalog, setCatalog] =
         useState<ComponentItem[]>(COMPONENT_CATALOG_SEED);

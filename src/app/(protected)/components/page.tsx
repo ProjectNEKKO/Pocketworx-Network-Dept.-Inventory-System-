@@ -91,15 +91,12 @@ function ComponentDetailDialog({
         onClose();
     }
 
-    function handleSendRequest() {
+    async function handleSendRequest() {
         if (!comp) return;
         const qty = parseInt(reqQty, 10);
         if (isNaN(qty) || qty <= 0) return;
-        const username = typeof window !== "undefined"
-            ? (localStorage.getItem("pwx_username") ?? "User")
-            : "User";
-        addRequest({ type: "component", itemSku: comp.sku, itemName: comp.name, requestedQty: qty, requestedBy: username });
-        setSubmitted(true);
+        const result = await addRequest({ type: "component", itemSku: comp.sku, itemName: comp.name, requestedQty: qty });
+        if (result) setSubmitted(true);
     }
 
     function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
