@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell, Check, X, Package, Radio, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import {
 } from "@/lib/stock-requests";
 import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
 import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
+import { useClientRole } from "@/lib/use-client-role";
+import { toast } from "sonner";
 
 // ── Gateway catalog helpers (mirror the gateway page's localStorage key) ──
 const GATEWAY_KEY = "pwx_gateway_catalog";
@@ -49,27 +51,83 @@ function relativeTime(iso: string) {
 }
 
 export function AdminRequestPanel() {
+    const { role, ready } = useClientRole();
     const [open, setOpen] = useState(false);
     const [requests, setRequests] = useState<StockRequest[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const eventSourceRef = useRef<EventSource | null>(null);
 
-    const refresh = useCallback(() => {
-        setRequests(loadRequests());
-    }, []);
+    const isAdmin = role === "admin" || role === "co-admin";
 
+    const refresh = useCallback(async () => {
+        if (!isAdmin) return;
+        try {
+            const data = await loadRequests();
+            setRequests(data);
+        } catch {
+            // silently ignore — polling will retry
+        }
+    }, [isAdmin]);
+
+    // ── SSE for instant push + polling as fallback ──
     useEffect(() => {
-        refresh();
-        // Poll every 10 s so badge updates without a page reload
-        const id = setInterval(refresh, 10_000);
-        return () => clearInterval(id);
-    }, [refresh]);
+        if (!ready || !isAdmin) return;
 
+        // Initial fetch
+        refresh();
+
+        let es: EventSource | null = null;
+        if (typeof window !== "undefined" && window.EventSource) {
+            es = new EventSource("/api/stock-requests/stream");
+            eventSourceRef.current = es;
+
+            es.addEventListener("init", (e) => {
+                refresh();
+            });
+
+            es.addEventListener("refresh", () => {
+                refresh();
+                toast.info("New stock request received!", {
+                    description: "A user just submitted a new withdrawal request.",
+                    duration: 5000,
+                });
+            });
+
+            es.onerror = () => {
+                // SSE error — closing and relying on polling
+                if (es) es.close();
+                eventSourceRef.current = null;
+            };
+        }
+
+        // Fallback polling every 5 s (catches SSE failures / proxy timeouts)
+        const pollId = setInterval(refresh, 5_000);
+
+        return () => {
+            if (es) {
+                es.close();
+            }
+            eventSourceRef.current = null;
+            clearInterval(pollId);
+        };
+    }, [ready, isAdmin, refresh]);
+
+    // Refresh on open
     useEffect(() => {
         if (open) refresh();
     }, [open, refresh]);
 
     const pending = requests.filter((r) => r.status === "pending");
 
-    function handleAccept(req: StockRequest) {
+    async function handleAccept(req: StockRequest) {
+        setIsLoading(true);
+        const success = await updateRequestStatus(req.id, "accepted");
+        if (!success) {
+            setIsLoading(false);
+            toast.error("Failed to accept request. Please try again.");
+            return;
+        }
+
         if (req.type === "component") {
             const catalog = loadComponentCatalog(COMPONENT_CATALOG_SEED);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,14 +146,25 @@ export function AdminRequestPanel() {
             );
             saveGatewayCatalog(next);
         }
-        updateRequestStatus(req.id, "accepted");
-        refresh();
+        await refresh();
+        setIsLoading(false);
+        toast.success("Request accepted.");
     }
 
-    function handleDecline(req: StockRequest) {
-        updateRequestStatus(req.id, "declined");
-        refresh();
+    async function handleDecline(req: StockRequest) {
+        setIsLoading(true);
+        const success = await updateRequestStatus(req.id, "declined");
+        if (success) {
+            await refresh();
+            toast.success("Request declined.");
+        } else {
+            toast.error("Failed to decline request. Please try again.");
+        }
+        setIsLoading(false);
     }
+
+    // Don't render the bell if not admin/co-admin yet (avoid flicker)
+    if (!ready || !isAdmin) return null;
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
@@ -193,6 +262,7 @@ export function AdminRequestPanel() {
                                 <div className="flex gap-2">
                                     <Button
                                         size="sm"
+                                        disabled={isLoading}
                                         className="flex-1 h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                                         onClick={() => handleAccept(req)}
                                     >
@@ -202,6 +272,7 @@ export function AdminRequestPanel() {
                                     <Button
                                         size="sm"
                                         variant="outline"
+                                        disabled={isLoading}
                                         className="flex-1 h-8 text-xs border-red-200 text-red-600 hover:bg-red-50"
                                         onClick={() => handleDecline(req)}
                                     >
