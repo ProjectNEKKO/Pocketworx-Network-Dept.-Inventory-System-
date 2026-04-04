@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
 import { Sidebar, MobileSidebar } from "@/components/layout/sidebar";
-import { AdminRequestPanel } from "@/components/layout/admin-request-panel";
+import { NotificationPanel } from "@/components/layout/notification-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,7 @@ export default function ProtectedLayout({
                 </div>
 
                 {/* Mobile top bar + sheet sidebar */}
-                <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-neutral-200 bg-white/95 px-4 backdrop-blur-xl md:hidden">
+                <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between bg-white/95 px-4 backdrop-blur-xl md:hidden">
                     <div className="flex items-center gap-2">
                         <Sheet>
                             <SheetTrigger asChild>
@@ -73,14 +73,14 @@ export default function ProtectedLayout({
                         </span>
                     </div>
                     {/* Notification bell — mobile */}
-                    <AdminRequestPanel />
+                    <NotificationPanel />
                 </div>
 
                 {/* Main content */}
                 <main className="flex-1 flex flex-col overflow-hidden">
                     {/* Desktop top bar with notification bell */}
-                    <div className="hidden md:flex h-12 shrink-0 items-center justify-end border-b border-neutral-100 bg-white px-6">
-                        <AdminRequestPanel />
+                    <div className="hidden md:flex h-12 shrink-0 items-center justify-end bg-white px-6">
+                        <NotificationPanel />
                     </div>
                     <div className="flex-1 overflow-y-auto">
                         <div className="mx-auto max-w-7xl p-6 lg:p-8">{children}</div>

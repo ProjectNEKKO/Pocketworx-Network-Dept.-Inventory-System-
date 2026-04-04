@@ -28,7 +28,6 @@ import {
     AlertTriangle,
     Upload,
     Download,
-    Bell,
     Search,
 } from "lucide-react";
 import {
@@ -280,44 +279,7 @@ export default function DashboardPage() {
     const [selectedHistoryItem, setSelectedHistoryItem] = useState<typeof recentActivity[0] | null>(null);
     const [isCriticalAlertsOpen, setIsCriticalAlertsOpen] = useState(false);
     const [period, setPeriod] = useState<keyof typeof chartData>("This Year");
-    const [notifOpen, setNotifOpen] = useState(false);
-    const [requests, setRequests] = useState<StockRequest[]>([]);
     const [importPreview, setImportPreview] = useState<ImportResult | null>(null);
-
-    const refreshRequests = useCallback(async () => {
-        const data = await loadRequests();
-        setRequests(data);
-    }, []);
-    useEffect(() => {
-        refreshRequests();
-        const id = setInterval(refreshRequests, 3_000);
-        return () => clearInterval(id);
-    }, [refreshRequests]);
-    useEffect(() => { if (notifOpen) refreshRequests(); }, [notifOpen, refreshRequests]);
-
-    async function handleAcceptReq(req: StockRequest) {
-        if (req.type === "component") {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const next = loadComponentCatalog(COMPONENT_CATALOG_SEED).map((c: any) =>
-                c.sku === req.itemSku ? { ...c, stock: Math.max(0, c.stock - req.requestedQty) } : c
-            );
-            saveComponentCatalog(next);
-        } else {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const next = loadGwCatalog().map((g: any) =>
-                g.sku === req.itemSku ? { ...g, quantity: Math.max(0, g.quantity - req.requestedQty) } : g
-            );
-            saveGwCatalog(next);
-        }
-        await updateRequestStatus(req.id, "accepted");
-        await refreshRequests();
-    }
-    async function handleDeclineReq(req: StockRequest) {
-        await updateRequestStatus(req.id, "declined");
-        await refreshRequests();
-    }
-
-    const pendingCount = requests.filter(r => r.status === "pending").length;
 
     const filteredHistory = recentActivity.filter(item => 
         item.action.toLowerCase().includes(historySearch.toLowerCase()) ||
@@ -339,75 +301,6 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="shrink-0 flex items-center gap-2 sm:gap-3">
-                    {/* Live Notifications Bell */}
-                    <Sheet open={notifOpen} onOpenChange={setNotifOpen}>
-                        <SheetTrigger asChild>
-                            <button className="relative p-2 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-full transition-colors outline-none cursor-pointer select-none">
-                                <Bell className="h-5 w-5" />
-                                {pendingCount > 0 && (
-                                    <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
-                                )}
-                            </button>
-                        </SheetTrigger>
-                        <SheetContent side="right" className="w-full sm:max-w-md bg-white border-l border-neutral-200 p-0 flex flex-col">
-                            <SheetHeader className="px-5 py-4 border-b border-neutral-100 shrink-0">
-                                <div className="flex items-center justify-between">
-                                    <SheetTitle className="text-base font-bold text-neutral-900">Notifications</SheetTitle>
-                                    {pendingCount > 0 && (
-                                        <span className="text-xs font-semibold bg-red-500 text-white px-2 py-0.5 rounded-full">{pendingCount} pending</span>
-                                    )}
-                                </div>
-                            </SheetHeader>
-                            <div className="flex-1 overflow-y-auto divide-y divide-neutral-100">
-                                {requests.length === 0 && (
-                                    <div className="flex flex-col items-center justify-center gap-3 py-16 text-neutral-400">
-                                        <Bell className="h-10 w-10 opacity-30" strokeWidth={1.5} />
-                                        <p className="text-sm font-medium">No notifications yet</p>
-                                    </div>
-                                )}
-                                {[
-                                    ...requests.filter(r => r.status === "pending"),
-                                    ...requests.filter(r => r.status !== "pending"),
-                                ].map(req => (
-                                    <div key={req.id} className="px-5 py-4 space-y-3">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100">
-                                                    {req.type === "component"
-                                                        ? <PackagePlus className="h-4 w-4 text-violet-600" />
-                                                        : <Radio className="h-4 w-4 text-blue-600" />}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-semibold text-neutral-900 truncate">{req.itemName}</p>
-                                                    <p className="text-[11px] text-neutral-500 font-mono">{req.itemSku}</p>
-                                                </div>
-                                            </div>
-                                            <span className={`shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                                                req.status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200"
-                                                : req.status === "accepted" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                : "bg-neutral-100 text-neutral-500 border-neutral-200"
-                                            }`}>{req.status}</span>
-                                        </div>
-                                        <div className="flex justify-between text-xs text-neutral-500">
-                                            <span><span className="font-medium text-neutral-700">{req.requestedBy}</span> · requested <span className="font-bold text-neutral-900">−{req.requestedQty} pcs</span></span>
-                                            <span>{relTime(req.createdAt)}</span>
-                                        </div>
-                                        {req.status === "pending" && role === "admin" && (
-                                            <div className="flex gap-2">
-                                                <button onClick={() => handleAcceptReq(req)} className="flex-1 h-8 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex items-center justify-center gap-1 transition-colors">
-                                                    <ChevronRight className="h-3.5 w-3.5" />Accept
-                                                </button>
-                                                <button onClick={() => handleDeclineReq(req)} className="flex-1 h-8 text-xs rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-medium flex items-center justify-center gap-1 transition-colors">
-                                                    <RefreshCw className="h-3.5 w-3.5" />Decline
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </SheetContent>
-                    </Sheet>
-
                     {role === "admin" && (
                         <>
                             <button

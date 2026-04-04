@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { updateStockRequestStatus } from "@/lib/db";
 import { getSession } from "@/lib/auth-server";
+import { sseManager } from "@/lib/sse-clients";
 
 export async function PATCH(
     request: Request,
@@ -14,9 +15,15 @@ export async function PATCH(
     try {
         const { id } = await params;
         const { status } = await request.json();
-        await updateStockRequestStatus(parseInt(id), status);
+        const requestId = parseInt(id);
+        await updateStockRequestStatus(requestId, status);
+        
+        // Broadcast the update so other admins' notification panels refresh instantly
+        sseManager.broadcast("refresh", { id: requestId, status });
+        
         return NextResponse.json({ success: true });
     } catch (error) {
+        console.error("Failed to update request status:", error);
         return NextResponse.json({ error: "Failed to update request status" }, { status: 500 });
     }
 }
