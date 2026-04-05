@@ -90,12 +90,16 @@ export async function processExcelImport(
                 const lookupKey = `${sku.toLowerCase()}-${warehouse.toLowerCase()}`;
                 
                 if (compMap.has(lookupKey)) {
-                    // Update: Add quantities
+                    // Update: Record the quantity to ADD (delta)
                     const existing = compMap.get(lookupKey)!;
-                    existing.stock += stock;
-                    if (min > existing.min) existing.min = min; // Optionally bump min
-                    updatedComponents.push({ ...existing }); // record update copy
-                    compMap.set(lookupKey, existing); // commit back to map
+                    // We record the incoming 'stock' as the adjustment amount
+                    const updateCopy = { ...existing, stock: stock }; 
+                    updatedComponents.push(updateCopy);
+                    
+                    // Update local map for internal preview consistency if needed
+                    existing.stock += stock; 
+                    if (min > existing.min) existing.min = min;
+                    compMap.set(lookupKey, existing);
                 } else {
                     // Add new
                     const newItem: ComponentItem = {
@@ -137,12 +141,14 @@ export async function processExcelImport(
 
                 if (gwMap.has(lookupKey)) {
                     const existing = gwMap.get(lookupKey)!;
+                    const updateCopy = { ...existing, quantity: quantity }; // record the delta
+                    updatedGateways.push(updateCopy);
+                    
                     existing.quantity += quantity;
-                    updatedGateways.push({ ...existing });
                     gwMap.set(lookupKey, existing);
                 } else {
                     const newItem: GatewayItem = {
-                        id: String(name),
+                        name: String(name),
                         sku: sku,
                         location: location,
                         quantity: quantity

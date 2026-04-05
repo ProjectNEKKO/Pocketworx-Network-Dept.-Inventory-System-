@@ -17,31 +17,12 @@ import {
     updateRequestStatus,
     loadNotifications,
 } from "@/lib/stock-requests";
-import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
-import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
 import { useClientRole } from "@/lib/use-client-role";
 import { toast } from "sonner";
 
-// ── Gateway catalog helpers ──
-const GATEWAY_KEY = "pwx_gateway_catalog";
-
-function loadGatewayCatalog() {
-    if (typeof window === "undefined") return [];
-    try {
-        const raw = localStorage.getItem(GATEWAY_KEY);
-        return raw ? JSON.parse(raw) : [];
-    } catch {
-        return [];
-    }
-}
-
-function saveGatewayCatalog(items: object[]) {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(GATEWAY_KEY, JSON.stringify(items));
-}
-
 // ── Format relative time ──
 function relativeTime(iso: string) {
+    if (!iso) return "a long time ago";
     const diff = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "just now";
@@ -126,48 +107,36 @@ export function NotificationPanel() {
 
     async function handleAccept(req: StockRequest) {
         setIsLoading(true);
-        const success = await updateRequestStatus(req.id, "accepted");
-        if (!success) {
-            setIsLoading(true);
-            toast.error("Failed to accept request.");
+        try {
+            const { success, error } = await updateRequestStatus(req.id, "accepted");
+            if (success) {
+                toast.success("Request accepted and inventory updated.");
+                await refresh();
+            } else {
+                toast.error(error || "Failed to accept request. Check stock levels.");
+            }
+        } catch (error: any) {
+            toast.error(error.message || "Failed to accept request.");
+        } finally {
             setIsLoading(false);
-            return;
         }
-
-        // Handle inventory subtraction (Client-only for demonstration consistency)
-        if (req.type === "component") {
-            const catalog = loadComponentCatalog(COMPONENT_CATALOG_SEED);
-            const next = catalog.map((c: any) =>
-                c.sku === req.itemSku
-                    ? { ...c, stock: Math.max(0, c.stock - req.requestedQty) }
-                    : c
-            );
-            saveComponentCatalog(next);
-        } else {
-            const catalog = loadGatewayCatalog();
-            const next = catalog.map((g: any) =>
-                g.sku === req.itemSku
-                    ? { ...g, quantity: Math.max(0, g.quantity - req.requestedQty) }
-                    : g
-            );
-            saveGatewayCatalog(next);
-        }
-
-        await refresh();
-        setIsLoading(false);
-        toast.success("Request accepted and inventory updated.");
     }
 
     async function handleDecline(req: StockRequest) {
         setIsLoading(true);
-        const success = await updateRequestStatus(req.id, "declined");
-        if (success) {
-            await refresh();
-            toast.success("Request declined.");
-        } else {
-            toast.error("Failed to decline request.");
+        try {
+            const { success, error } = await updateRequestStatus(req.id, "declined");
+            if (success) {
+                toast.success("Request declined.");
+                await refresh();
+            } else {
+                toast.error(error || "Failed to decline request.");
+            }
+        } catch (error: any) {
+            toast.error(error.message || "Failed to decline request.");
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }
 
     if (!ready) return null;

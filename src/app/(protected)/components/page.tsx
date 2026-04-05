@@ -27,17 +27,14 @@ import {
 } from "@/components/ui/select";
 import { useClientRole } from "@/lib/use-client-role";
 import { AddComponentsDialog, ComponentItem } from "./add_components";
-import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
-import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
 import { addRequest } from "@/lib/stock-requests";
 import { exportComponentsToExcel } from "@/lib/excel-import";
 
 function getStatusInfo(stock: number, min: number) {
-    const stockPercent = Math.round((stock / min) * 100);
-    if (stockPercent >= 71) return { status: "Good", statusClasses: "border-emerald-200 bg-emerald-50 text-emerald-700", textClass: "text-emerald-700 font-medium" };
-    if (stockPercent >= 31) return { status: "Fair", statusClasses: "border-blue-200 bg-blue-50 text-blue-700", textClass: "text-blue-700 font-medium" };
-    if (stockPercent >= 11) return { status: "Low", statusClasses: "border-amber-200 bg-amber-50 text-amber-700", textClass: "text-amber-700 font-medium" };
-    return { status: "Critical", statusClasses: "border-red-200 bg-red-50 text-red-700", textClass: "text-red-700 font-medium" };
+    if (stock <= 0) return { status: "Out of Stock", statusClasses: "border-red-200 bg-red-50 text-red-700", textClass: "text-red-700 font-bold" };
+    if (stock <= min) return { status: "Critical", statusClasses: "border-orange-200 bg-orange-50 text-orange-700", textClass: "text-orange-700 font-bold" };
+    if (stock <= min * 1.5) return { status: "Low", statusClasses: "border-amber-200 bg-amber-50 text-amber-700", textClass: "text-amber-700 font-semibold" };
+    return { status: "Good", statusClasses: "border-emerald-200 bg-emerald-50 text-emerald-700", textClass: "text-emerald-700 font-medium" };
 }
 
 // --- Component Detail Dialog ---
@@ -79,14 +76,23 @@ function ComponentDetailDialog({
     const currentQty = parseInt(inputValue, 10);
     const safeQty = isNaN(currentQty) ? 0 : Math.max(0, currentQty);
 
-    function handleIncrement() { setInputValue((safeQty + 1).toString()); }
-    function handleDecrement() { setInputValue(Math.max(0, safeQty - 1).toString()); }
+    function handleIncrement() { 
+        const next = safeQty + 1;
+        console.log(`[DEBUG] Increment: ${safeQty} -> ${next}`);
+        setInputValue(next.toString()); 
+    }
+    function handleDecrement() { 
+        const next = Math.max(0, safeQty - 1);
+        console.log(`[DEBUG] Decrement: ${safeQty} -> ${next}`);
+        setInputValue(next.toString()); 
+    }
     function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
         if (/^\d*$/.test(e.target.value)) setInputValue(e.target.value);
     }
 
     function handleSave() {
         if (!comp) return;
+        console.log(`[DEBUG] Saving Quantity: ${safeQty} for SKU: ${comp.sku}`);
         onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue);
         onClose();
     }
@@ -271,24 +277,50 @@ function ComponentDetailDialog({
 // --- Main Page ---
 export default function ComponentsPage() {
     const { role } = useClientRole();
-    const [components, setComponents] = useState<ComponentItem[]>(COMPONENT_CATALOG_SEED);
+    const [components, setComponents] = useState<ComponentItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedComp, setSelectedComp] = useState<ComponentItem | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
 
-    /* eslint-disable react-hooks/set-state-in-effect -- load persisted catalog after mount */
-    useEffect(() => {
-        setComponents(loadComponentCatalog(COMPONENT_CATALOG_SEED));
-    }, []);
-    /* eslint-enable react-hooks/set-state-in-effect */
+    const fetchComponents = async () => {
+        try {
+            setLoading(true);
+            const res = await fetch("/api/inventory/components");
+            if (res.ok) {
+                const data = await res.json();
+                setComponents(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch components:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const handleAddComponent = (newComp: ComponentItem) => {
-        setComponents((prev) => {
-            const next = [...prev, newComp];
-            saveComponentCatalog(next);
-            return next;
-        });
+    useEffect(() => {
+        fetchComponents();
+        
+        // Real-time Sync: Polling every 10 seconds
+        const interval = setInterval(() => {
+            fetchComponents();
+        }, 10000);
+
+        return () => clearInterval(interval);
+    }, []);
+
+    const handleAddComponent = async (newComp: ComponentItem) => {
+        try {
+            const res = await fetch("/api/inventory/components", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newComp),
+            });
+            if (res.ok) fetchComponents();
+        } catch (error) {
+            console.error("Failed to add component:", error);
+        }
     };
 
     const handleRowClick = (comp: ComponentItem) => {
@@ -296,21 +328,27 @@ export default function ComponentsPage() {
         setDialogOpen(true);
     };
 
-    const handleUpdate = (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string) => {
-        setComponents((prev) => {
-            const next = prev.map((c) =>
-                (c.sku === sku && c.warehouse === warehouse)
-                    ? {
-                          ...c,
-                          stock: newStock,
-                          image: imageUrl !== undefined ? imageUrl : c.image,
-                          name: newName !== undefined ? newName : c.name,
-                      }
-                    : c
-            );
-            saveComponentCatalog(next);
-            return next;
-        });
+    const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string) => {
+        try {
+            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}`);
+            const res = await fetch("/api/inventory/components", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName }),
+            });
+            const updated = await res.json();
+            console.log(`[API_PATCH_RESPONSE] Status: ${res.status}`, updated);
+            
+            if (res.ok) {
+                // Synchronize the selected component state so the modal keeps the correct value
+                if (selectedComp && selectedComp.sku === sku && selectedComp.warehouse === warehouse) {
+                    setSelectedComp(updated);
+                }
+                fetchComponents();
+            }
+        } catch (error) {
+            console.error("Failed to update component UI:", error);
+        }
     };
 
     const handleCloseDialog = () => {
@@ -318,9 +356,17 @@ export default function ComponentsPage() {
         setSelectedComp(null);
     };
 
-    const handleDelete = (e: React.MouseEvent, sku: string, warehouse: string | undefined) => {
+    const handleDelete = async (e: React.MouseEvent, sku: string, warehouse: string | undefined) => {
         e.stopPropagation();
-        setComponents(prev => prev.filter(c => !(c.sku === sku && c.warehouse === warehouse)));
+        if (!confirm("Are you sure you want to delete this component?")) return;
+        try {
+            const res = await fetch(`/api/inventory/components?sku=${sku}&warehouse=${warehouse}`, {
+                method: "DELETE",
+            });
+            if (res.ok) fetchComponents();
+        } catch (error) {
+            console.error("Failed to delete component:", error);
+        }
     };
 
     const filtered = components.reduce((acc, c) => {

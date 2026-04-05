@@ -22,8 +22,8 @@ export async function PATCH(
         sseManager.broadcast("refresh", { id: requestId, status });
         
         return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error("Failed to update request status:", error);
-        return NextResponse.json({ error: "Failed to update request status" }, { status: 500 });
+    } catch (error: any) {
+        console.error("Failed to update request status:", error.message);
+        return NextResponse.json({ error: error.message || "Failed to update request status" }, { status: 400 });
     }
 }

@@ -61,11 +61,10 @@ import {
     loadRequests,
     updateRequestStatus,
 } from "@/lib/stock-requests";
-import { loadComponentCatalog, saveComponentCatalog } from "@/lib/inventory-catalog";
-import { COMPONENT_CATALOG_SEED } from "@/data/components-seed";
-import { loadGwCatalog, saveGwCatalog } from "@/lib/gateway-catalog";
 import { downloadExcelTemplate, processExcelImport, ImportResult } from "@/lib/excel-import";
 import { toast } from "sonner";
+import { ComponentItem } from "../components/add_components";
+import { GatewayItem } from "../gateways/add_gateways";
 function relTime(iso: string) {
     const diff = Date.now() - new Date(iso).getTime();
     const m = Math.floor(diff / 60000);
@@ -75,59 +74,7 @@ function relTime(iso: string) {
     return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
 }
 
-const statsData = [
-    {
-        label: "Registered Gateways",
-        value: "10",
-        icon: Radio,
-        iconColor: "text-blue-500",
-        bgColor: "bg-blue-100/80",
-        href: "/gateways",
-        data: [
-            { name: "PWX IoT Hub", value: 6, color: "#3b82f6" },
-            { name: "Jenny's", value: 4, color: "#93c5fd" },
-        ]
-    },
-    {
-        label: "Components",
-        value: "40",
-        icon: Cpu,
-        iconColor: "text-violet-500",
-        bgColor: "bg-violet-100/80",
-        href: "/components",
-        data: [
-            { name: "Hardware", value: 15, color: "#8b5cf6" },
-            { name: "Networking", value: 10, color: "#c4b5fd" },
-            { name: "Enclosure", value: 10, color: "#a78bfa" },
-            { name: "Accessories", value: 5, color: "#ede9fe" },
-        ]
-    },
-    {
-        label: "Total BOMs",
-        value: "5",
-        icon: FileStack,
-        iconColor: "text-amber-500",
-        bgColor: "bg-amber-100/80",
-        href: "/bom",
-        data: [
-            { name: "Active", value: 3, color: "#f59e0b" },
-            { name: "Draft", value: 2, color: "#fde68a" },
-        ]
-    },
-    {
-        label: "Critical Alerts",
-        value: "6",
-        icon: AlertTriangle,
-        iconColor: "text-red-500",
-        bgColor: "bg-red-100/80",
-        data: [
-            { name: "Hardware", value: 2, color: "#ef4444" },
-            { name: "Accessories", value: 2, color: "#fca5a5" },
-            { name: "Enclosure", value: 1, color: "#f87171" },
-            { name: "Networking", value: 1, color: "#fee2e2" },
-        ]
-    },
-];
+// Stats data moved inside component to access state
 
 const criticalComponents = [
     { name: "Enclosure Dimension 168X149 mm", sku: "DIM-168-149", stock: 10, min: 50, warehouse: "PWX IoT Hub", category: "Enclosure", status: "Critical" },
@@ -278,8 +225,82 @@ export default function DashboardPage() {
     const [historySearch, setHistorySearch] = useState("");
     const [selectedHistoryItem, setSelectedHistoryItem] = useState<typeof recentActivity[0] | null>(null);
     const [isCriticalAlertsOpen, setIsCriticalAlertsOpen] = useState(false);
-    const [period, setPeriod] = useState<keyof typeof chartData>("This Year");
     const [importPreview, setImportPreview] = useState<ImportResult | null>(null);
+    const [isImporting, setIsImporting] = useState(false);
+    const [counts, setCounts] = useState({ gateways: 0, components: 0, alerts: 0 });
+    const [period, setPeriod] = useState<keyof typeof chartData>("Today");
+
+    const statsData = [
+        {
+            label: "Registered Gateways",
+            value: counts.gateways.toString(),
+            icon: Radio,
+            iconColor: "text-blue-500",
+            bgColor: "bg-blue-100/80",
+            href: "/gateways",
+            data: [
+                { name: "Total", value: counts.gateways, color: "#3b82f6" },
+            ]
+        },
+        {
+            label: "Components",
+            value: counts.components.toString(),
+            icon: Cpu,
+            iconColor: "text-violet-500",
+            bgColor: "bg-violet-100/80",
+            href: "/components",
+            data: [
+                { name: "Total", value: counts.components, color: "#8b5cf6" },
+            ]
+        },
+        {
+            label: "Total BOMs",
+            value: "5",
+            icon: FileStack,
+            iconColor: "text-amber-500",
+            bgColor: "bg-amber-100/80",
+            href: "/bom",
+            data: [
+                { name: "Active", value: 3, color: "#f59e0b" },
+                { name: "Draft", value: 2, color: "#fde68a" },
+            ]
+        },
+        {
+            label: "Critical Alerts",
+            value: counts.alerts.toString(),
+            icon: AlertTriangle,
+            iconColor: "text-red-500",
+            bgColor: "bg-red-100/80",
+            data: [
+                { name: "Critical", value: counts.alerts, color: "#ef4444" },
+            ]
+        },
+    ];
+
+    useEffect(() => {
+        async function fetchCounts() {
+            try {
+                const [cRes, gRes] = await Promise.all([
+                    fetch("/api/inventory/components"),
+                    fetch("/api/inventory/gateways")
+                ]);
+                const compData = await cRes.json();
+                const gwData = await gRes.json();
+                
+                if (Array.isArray(compData) && Array.isArray(gwData)) {
+                    const criticalCount = compData.filter((c: any) => c.stock <= c.min_stock).length;
+                    setCounts({
+                        components: compData.length,
+                        gateways: gwData.length,
+                        alerts: criticalCount
+                    });
+                }
+            } catch (error) {
+                console.error("Failed to fetch dashboard stats:", error);
+            }
+        }
+        fetchCounts();
+    }, []);
 
     const filteredHistory = recentActivity.filter(item => 
         item.action.toLowerCase().includes(historySearch.toLowerCase()) ||
@@ -321,28 +342,37 @@ export default function DashboardPage() {
                                     onChange={async (e) => {
                                         if (e.target.files && e.target.files.length > 0) {
                                             const file = e.target.files[0];
-                                            
-                                            const currentComponents = loadComponentCatalog(COMPONENT_CATALOG_SEED);
-                                            const currentGateways = loadGwCatalog();
+                                            setIsImporting(true);
+                                            try {
+                                                const [cRes, gRes] = await Promise.all([
+                                                    fetch("/api/inventory/components"),
+                                                    fetch("/api/inventory/gateways")
+                                                ]);
+                                                const currentComponents = await cRes.json();
+                                                const currentGateways = await gRes.json();
 
-                                            const result = await processExcelImport(file, currentComponents, currentGateways);
-                                            
-                                            if (result.success) {
-                                                if (
-                                                    result.components.added.length > 0 || 
-                                                    result.components.updated.length > 0 || 
-                                                    result.gateways.added.length > 0 || 
-                                                    result.gateways.updated.length > 0 ||
-                                                    result.errors.length > 0
-                                                ) {
-                                                    setImportPreview(result);
+                                                const result = await processExcelImport(file, currentComponents, currentGateways);
+                                                
+                                                if (result.success) {
+                                                    if (
+                                                        result.components.added.length > 0 || 
+                                                        result.components.updated.length > 0 || 
+                                                        result.gateways.added.length > 0 || 
+                                                        result.gateways.updated.length > 0
+                                                    ) {
+                                                        setImportPreview(result);
+                                                    } else {
+                                                        toast.info("No changes found.", { description: "The Excel file data matches current inventory." });
+                                                    }
                                                 } else {
-                                                    toast.info("No data found.", { description: "The Excel file contained no valid components or gateways to import." });
+                                                    toast.error("Import Failed", { description: result.error });
                                                 }
-                                            } else {
-                                                toast.error("Import Failed", { description: result.error });
+                                            } catch (err) {
+                                                toast.error("Error loading inventory for import comparison.");
+                                            } finally {
+                                                setIsImporting(false);
+                                                e.target.value = "";
                                             }
-                                            e.target.value = "";
                                         }
                                     }}
                                 />
@@ -824,27 +854,54 @@ export default function DashboardPage() {
 
                     <div className="p-4 border-t border-neutral-100 bg-neutral-50/50 shrink-0 flex gap-3 justify-end items-center">
                         <Button variant="ghost" className="text-neutral-600 hover:bg-neutral-200/50 hover:text-neutral-900 font-medium px-5" onClick={() => setImportPreview(null)}>Cancel</Button>
-                        <Button className="bg-violet-600 hover:bg-violet-700 text-white shadow-md font-medium px-6" onClick={() => {
+                        <Button disabled={isImporting} className="bg-violet-600 hover:bg-violet-700 text-white shadow-md font-medium px-6" onClick={async () => {
                             if (!importPreview) return;
-                            
-                            // Because finalComponents contains the precisely merged and validated set:
-                            if (importPreview.components.added.length || importPreview.components.updated.length) {
-                                saveComponentCatalog(importPreview.finalComponents);
+                            setIsImporting(true);
+                            try {
+                                const componentAdjustOps = importPreview.components.updated.map(c => fetch("/api/inventory/components/adjust", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ sku: c.sku, warehouse: c.warehouse, delta: c.stock })
+                                }));
+
+                                const gatewayOps = [
+                                    ...importPreview.gateways.added.map(g => fetch("/api/inventory/gateways", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(g)
+                                    })),
+                                    ...importPreview.gateways.updated.map(g => fetch("/api/inventory/gateways", {
+                                        method: "PATCH",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(g) // Gateways still use PATCH for now, but we can make an adjust API for them too if needed
+                                    }))
+                                ];
+
+                                await Promise.all([
+                                    ...importPreview.components.added.map(c => fetch("/api/inventory/components", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(c)
+                                    })),
+                                    ...componentAdjustOps,
+                                    ...gatewayOps
+                                ]);
+                                
+                                const totalAdded = importPreview.components.added.length + importPreview.gateways.added.length;
+                                const totalUpdated = importPreview.components.updated.length + importPreview.gateways.updated.length;
+                                
+                                toast.success(`Import Confirmed!`, {
+                                    description: `Successfully added ${totalAdded} items and updated ${totalUpdated} existing items.`,
+                                });
+                                
+                                setImportPreview(null);
+                                setTimeout(() => { window.location.reload(); }, 600);
+                            } catch (err) {
+                                toast.error("Import failed. Some items may not have been saved.");
+                            } finally {
+                                setIsImporting(false);
                             }
-                            if (importPreview.gateways.added.length || importPreview.gateways.updated.length) {
-                                saveGwCatalog(importPreview.finalGateways);
-                            }
-                            
-                            const totalAdded = importPreview.components.added.length + importPreview.gateways.added.length;
-                            const totalUpdated = importPreview.components.updated.length + importPreview.gateways.updated.length;
-                            
-                            toast.success(`Import Confirmed!`, {
-                                description: `Successfully added ${totalAdded} items and updated ${totalUpdated} existing items.`,
-                            });
-                            
-                            setImportPreview(null);
-                            setTimeout(() => { window.location.reload(); }, 600);
-                        }}>Confirm Import</Button>
+                        }}>{isImporting ? "Processing..." : "Confirm Import"}</Button>
                     </div>
                 </DialogContent>
             </Dialog>
