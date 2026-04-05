@@ -98,7 +98,7 @@ export async function processExcelImport(
                     
                     // Update local map for internal preview consistency if needed
                     existing.stock += stock; 
-                    if (min > existing.min) existing.min = min;
+                    if (min > existing.min_stock) existing.min_stock = min;
                     compMap.set(lookupKey, existing);
                 } else {
                     // Add new
@@ -107,7 +107,7 @@ export async function processExcelImport(
                         sku: sku,
                         category: String(category || "Accessories"),
                         stock: stock,
-                        min: min,
+                        min_stock: min,
                         warehouse: warehouse,
                     };
                     addedComponents.push(newItem);
@@ -202,7 +202,7 @@ export function exportComponentsToExcel(components: ComponentItem[]) {
         c.sku,
         c.category,
         c.stock,
-        c.min,
+        c.min_stock,
         c.warehouse || "PWX IoT Hub"
     ]);
 

@@ -96,6 +96,33 @@ export async function getAllUsers(): Promise<Omit<User, 'password_hash'>[]> {
     }
 }
 
+export async function updateUserRole(email: string, role: 'admin' | 'co-admin' | 'user'): Promise<void> {
+    try {
+        const queryText = `
+            UPDATE users
+            SET role = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE email = $2;
+        `;
+        await pool.query(queryText, [role, email.toLowerCase()]);
+    } catch (error) {
+        console.error("Failed updating user role:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function deleteUserByEmail(email: string): Promise<void> {
+    try {
+        const queryText = `
+            DELETE FROM users
+            WHERE email = $1;
+        `;
+        await pool.query(queryText, [email.toLowerCase()]);
+    } catch (error) {
+        console.error("Failed deleting user:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
 export async function createUser(
     name: string,
     email: string,
