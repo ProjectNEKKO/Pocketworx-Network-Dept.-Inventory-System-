@@ -19,9 +19,17 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
+        
+        // Check for min/min_stock restriction
+        const hasMinStockUpdate = body.min !== undefined || body.min_stock !== undefined;
+        if (hasMinStockUpdate && session.role !== 'admin') {
+            return NextResponse.json({ error: "Only administrators can set initial critical stock levels." }, { status: 403 });
+        }
+
         const newItem = await upsertComponent(body);
         return NextResponse.json(newItem);
     } catch (error) {
+        console.error("Failed to add component:", error);
         return NextResponse.json({ error: "Failed to add component" }, { status: 500 });
     }
 }
@@ -38,7 +46,13 @@ export async function PATCH(request: Request) {
         
         if (!sku) return NextResponse.json({ error: "Missing SKU" }, { status: 400 });
 
-        const updatedItem = await updateComponent(sku, warehouse, updates);
+        // Check for min/min_stock restriction
+        const hasMinStockUpdate = updates.min !== undefined || updates.min_stock !== undefined;
+        if (hasMinStockUpdate && session.role !== 'admin') {
+            return NextResponse.json({ error: "Only administrators can update critical stock levels." }, { status: 403 });
+        }
+
+        const updatedItem = await updateComponent(sku, warehouse, updates, session.email);
         return NextResponse.json(updatedItem);
     } catch (error: any) {
         console.error("Failed to update component API:", error.message);

@@ -4,7 +4,15 @@ import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Upload, X, Package } from "lucide-react";
+import { Plus, Upload, X, Package, ShieldAlert } from "lucide-react";
+import { useClientRole } from "@/lib/use-client-role";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,7 +51,7 @@ export interface ComponentItem {
   name: string;
   sku: string;
   stock: number;
-  min: number;
+  min_stock: number;
   category: string;
   image?: string;
   warehouse?: string;
@@ -54,7 +62,7 @@ const formSchema = z.object({
   name: z.string().min(1, "Component name is required"),
   sku: z.string().min(1, "SKU is required"),
   stock: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Stock must be a non-negative number"),
-  min: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Minimum stock must be a non-negative number"),
+  min_stock: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Minimum stock must be a non-negative number"),
   category: z.string().min(1, "Category is required"),
   warehouse: z.string().min(1, "Warehouse is required"),
 });
@@ -66,7 +74,10 @@ export function AddComponentsDialog({
   onAdd: (component: ComponentItem) => void;
   existingSkus: string[];
 }) {
+  const { role } = useClientRole();
+  const isAdmin = role === "admin";
   const [open, setOpen] = useState(false);
+
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +87,7 @@ export function AddComponentsDialog({
       name: "",
       sku: "",
       stock: "",
-      min: "",
+      min_stock: "",
       category: "",
       warehouse: "PWX IoT Hub",
     },
@@ -110,7 +121,7 @@ export function AddComponentsDialog({
       name: values.name,
       sku: values.sku,
       stock: Number(values.stock),
-      min: Number(values.min),
+      min_stock: Number(values.min_stock),
       category: values.category,
       warehouse: values.warehouse,
       image: imageUrl,
@@ -213,12 +224,38 @@ export function AddComponentsDialog({
               />
               <FormField
                 control={form.control}
-                name="min"
+                name="min_stock"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Critical Stock</FormLabel>
+                    <FormItem>
+                    <FormLabel className="flex items-center gap-1.5">
+                      Critical Stock
+                      {!isAdmin && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <ShieldAlert className="h-3.5 w-3.5 text-amber-500 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent className="bg-neutral-900 text-white border-neutral-800 text-[11px]">
+                              Only administrators can modify critical stock levels.
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} className="h-10 border-neutral-200 focus-visible:ring-violet-500/20 focus-visible:border-violet-500 bg-white" />
+                      <div className="relative">
+                        <Input 
+                          type="number" 
+                          {...field} 
+                          disabled={!isAdmin}
+                          className={`h-10 border-neutral-200 focus-visible:ring-violet-500/20 focus-visible:border-violet-500 bg-white ${!isAdmin ? "bg-neutral-50 text-neutral-400 cursor-not-allowed pr-8" : ""}`} 
+                        />
+                        {!isAdmin && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <X className="h-3 w-3 text-neutral-300" />
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
