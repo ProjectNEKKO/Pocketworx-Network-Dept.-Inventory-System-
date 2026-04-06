@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
     User,
     Mail,
@@ -27,14 +27,17 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useClientRole } from "@/lib/use-client-role";
+import { Skeleton } from "@/components/ui/skeleton";
+
 
 export default function ProfilePage() {
-    const { role } = useClientRole();
+    const { role: clientRole } = useClientRole();
+    const [isLoading, setIsLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [profile, setProfile] = useState({
-        name: "Admin Setup",
-        email: "admin@pwx.system",
-        role: "Co-Admin",
+        name: "",
+        email: "",
+        role: "",
     });
     const [tempProfile, setTempProfile] = useState({ ...profile });
     const [image, setImage] = useState<string | null>(null);
@@ -44,8 +47,41 @@ export default function ProfilePage() {
     const [password, setPassword] = useState({ current: "", newPw: "", confirm: "" });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const initials = profile.name
+    // Fetch profile data on mount
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const res = await fetch("/api/auth/me");
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Normalize role for display (capitalize it)
+                    const displayRole = data.role 
+                        ? data.role.split('-').map((s: string) => s.charAt(0).toUpperCase() + s.slice(1)).join('-') 
+                        : "User";
+
+                    const updatedProfile = {
+                        name: data.name || "User",
+                        email: data.email,
+                        role: displayRole,
+                    };
+                    setProfile(updatedProfile);
+                    setTempProfile(updatedProfile);
+                }
+            } catch (err) {
+                console.error("Failed to fetch profile:", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, []);
+
+
+    const initials = (profile.name || "??")
         .split(" ")
+        .filter(Boolean)
         .map((n) => n[0])
         .join("")
         .slice(0, 2)
@@ -112,7 +148,9 @@ export default function ProfilePage() {
 
                     {/* Edit / Save buttons */}
                     <div className="flex gap-2 pb-1">
-                        {!isEditing ? (
+                        {isLoading ? (
+                            <Skeleton className="h-9 w-28 rounded-xl" />
+                        ) : !isEditing ? (
                             <Button
                                 onClick={() => setIsEditing(true)}
                                 className="bg-black hover:bg-neutral-800 text-white h-9 px-4 rounded-xl font-bold text-sm gap-2 shadow-sm transition-all hover:-translate-y-0.5"
@@ -147,7 +185,9 @@ export default function ProfilePage() {
                         <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 uppercase tracking-widest">
                             <User className="h-3.5 w-3.5" /> Full Name
                         </label>
-                        {isEditing ? (
+                        {isLoading ? (
+                            <Skeleton className="h-11 rounded-xl" />
+                        ) : isEditing ? (
                             <Input
                                 value={tempProfile.name}
                                 onChange={(e) => setTempProfile({ ...tempProfile, name: e.target.value })}
@@ -164,7 +204,9 @@ export default function ProfilePage() {
                         <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 uppercase tracking-widest">
                             <Mail className="h-3.5 w-3.5" /> Email Address
                         </label>
-                        {isEditing ? (
+                        {isLoading ? (
+                            <Skeleton className="h-11 rounded-xl" />
+                        ) : isEditing ? (
                             <Input
                                 value={tempProfile.email}
                                 onChange={(e) => setTempProfile({ ...tempProfile, email: e.target.value })}
@@ -184,7 +226,9 @@ export default function ProfilePage() {
                         <label className="flex items-center gap-1.5 text-[11px] font-bold text-neutral-400 uppercase tracking-widest">
                             <ShieldCheck className="h-3.5 w-3.5" /> Role
                         </label>
-                        {isEditing && role === "admin" ? (
+                        {isLoading ? (
+                            <Skeleton className="h-11 rounded-xl" />
+                        ) : isEditing && clientRole === "admin" ? (
                             <Select
                                 value={tempProfile.role}
                                 onValueChange={(value) => setTempProfile({ ...tempProfile, role: value })}
@@ -201,7 +245,7 @@ export default function ProfilePage() {
                         ) : (
                             <div className="h-11 flex items-center gap-3 px-4 rounded-xl bg-neutral-50 border border-neutral-100">
                                 <Badge className={`${profile.role === "Admin" ? "bg-red-100 text-red-700 border-red-200 hover:bg-red-100" : profile.role === "Co-Admin" ? "bg-indigo-100 text-indigo-700 border-indigo-200 hover:bg-indigo-100" : "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100"} font-semibold text-xs px-2.5 py-0.5 gap-1`}>
-                                    <ShieldCheck className="h-3 w-3" /> {profile.role}
+                                    <ShieldCheck className="h-3 w-3" /> {profile.role || "User"}
                                 </Badge>
                             </div>
                         )}
