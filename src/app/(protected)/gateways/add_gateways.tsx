@@ -38,7 +38,8 @@ export interface GatewayActivity {
 }
 
 export interface GatewayItem {
-  id: string;
+  id?: number;
+  name: string;
   sku: string;
   location: string;
   quantity: number;
@@ -47,7 +48,7 @@ export interface GatewayItem {
 }
 
 const formSchema = z.object({
-  id: z.string().min(2, "Name must be at least 2 characters"),
+  name: z.string().min(2, "Name must be at least 2 characters"),
   sku: z.string().min(2, "SKU must be at least 2 characters"),
   quantity: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Quantity must be a non-negative number"),
   location: z.string().min(1, "Warehouse is required"),
@@ -66,7 +67,7 @@ export function AddGatewaysDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      id: "",
+      name: "",
       sku: "",
       quantity: "1",
       location: "PWX IoT Hub",
@@ -92,7 +93,7 @@ export function AddGatewaysDialog({
     }
 
     onAdd({
-      id: values.id,
+      name: values.name,
       sku: values.sku,
       quantity: Number(values.quantity),
       location: values.location,
@@ -107,7 +108,7 @@ export function AddGatewaysDialog({
 
   // Quick action function to generate SKU based on name and warehouse
   function generateLinkedSku() {
-      const name = form.getValues("id");
+      const name = form.getValues("name");
       const warehouse = form.getValues("location");
       
       if (!name) return;
@@ -170,7 +171,7 @@ export function AddGatewaysDialog({
               <div className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="id"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-semibold text-neutral-700">Gateway Name/Model</FormLabel>

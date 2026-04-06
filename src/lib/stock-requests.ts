@@ -52,17 +52,23 @@ export async function addRequest(
 export async function updateRequestStatus(
   id: number | string,
   status: "accepted" | "declined"
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch(`/api/stock-requests/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    return res.ok;
-  } catch (error) {
+    
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        return { success: false, error: errorData.error || "Failed to update status" };
+    }
+    
+    return { success: true };
+  } catch (error: any) {
     console.error("Failed to update status:", error);
-    return false;
+    return { success: false, error: error.message || "Failed to update status due to network error" };
   }
 }
 

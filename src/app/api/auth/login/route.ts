@@ -58,13 +58,17 @@ export async function POST(req: NextRequest) {
         const { email, password } = result.data;
 
         // 3. Perform the Data check (Parameter-safe implicitly abstracting the in-memory array)
+        console.log(`[AUTH] Attempting login for email: ${email}`);
         const user = await getUserByEmail(email);
         if (!user) {
             record.count += 1;
             rateLimitMap.set(ip, record);
-            console.warn(`[AUTH] Failed lookup for user: ${email}`);
-            // Generic Error
-            return NextResponse.json({ error: "Account not found" }, { status: 401 });
+            console.warn(`[AUTH] Failed lookup: Account not found for email: ${email}`);
+            // Generic Error for production, more specific for debugging
+            return NextResponse.json(
+                { error: process.env.NODE_ENV === "development" ? "Account not found" : "Invalid credentials" }, 
+                { status: 401 }
+            );
         }
 
         // 4. Secure Password execution via strict timing cryptography (bcrypt)
@@ -72,10 +76,15 @@ export async function POST(req: NextRequest) {
         if (!isMatch) {
             record.count += 1;
             rateLimitMap.set(ip, record);
-            console.warn(`[AUTH] Invalid password trace against email: ${email}`);
-            // Generic Error
-            return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+            console.warn(`[AUTH] Invalid password attempt trace against email: ${email}`);
+            // Generic Error for production, more specific for debugging
+            return NextResponse.json(
+                { error: process.env.NODE_ENV === "development" ? "Incorrect password" : "Invalid credentials" }, 
+                { status: 401 }
+            );
         }
+
+        console.log(`[AUTH] Successfully authenticated user: ${email} (Role: ${user.role})`);
 
         // Pass! Clear limits and log success
         rateLimitMap.delete(ip);

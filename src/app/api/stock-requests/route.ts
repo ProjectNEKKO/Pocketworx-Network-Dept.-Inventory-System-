@@ -5,12 +5,18 @@ import { sseManager } from "@/lib/sse-clients";
 
 export async function GET() {
     const session = await getSession();
-    if (!session || (session.role !== 'admin' && session.role !== 'co-admin')) {
+    if (!session) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     try {
-        const requests = await getStockRequests();
+        let requests = await getStockRequests();
+        
+        // Filter for specific user if not admin
+        if (session.role !== 'admin' && session.role !== 'co-admin') {
+            requests = requests.filter(r => r.requested_by.toLowerCase() === session.email.toLowerCase());
+        }
+        
         return NextResponse.json(requests);
     } catch (error) {
         return NextResponse.json({ error: "Failed to fetch requests" }, { status: 500 });

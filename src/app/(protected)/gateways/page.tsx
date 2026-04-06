@@ -28,7 +28,6 @@ import {
 import { useClientRole } from "@/lib/use-client-role";
 import { AddGatewaysDialog, GatewayItem } from "./add_gateways";
 import { addRequest } from "@/lib/stock-requests";
-import { loadGwCatalog, saveGwCatalog } from "@/lib/gateway-catalog";
 
 function GatewayDetailDialog({
     gw,
@@ -84,7 +83,7 @@ function GatewayDetailDialog({
         if (!gw) return;
         const qty = parseInt(reqQty, 10);
         if (isNaN(qty) || qty <= 0) return;
-        const result = await addRequest({ type: "gateway", itemSku: gw.sku, itemName: gw.id, requestedQty: qty });
+        const result = await addRequest({ type: "gateway", itemSku: gw.sku, itemName: gw.name, requestedQty: qty });
         if (result) setSubmitted(true);
     }
 
@@ -109,7 +108,7 @@ function GatewayDetailDialog({
                 <div className="p-2.5 pb-0">
                     <div className="relative group flex h-48 w-full items-center justify-center rounded-[16px] bg-neutral-100/60 overflow-hidden border border-neutral-200/50">
                         {imageUrl ? (
-                            <img src={imageUrl} alt={gw.id} className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105" />
+                            <img src={imageUrl} alt={gw.name} className="h-full w-full object-contain transition-transform duration-700 group-hover:scale-105" />
                         ) : (
                             <div className="flex flex-col items-center gap-3 text-neutral-400">
                                 <Radio className="h-14 w-14 opacity-80" strokeWidth={1.5} />
@@ -140,7 +139,7 @@ function GatewayDetailDialog({
                                         placeholder="Gateway Name"
                                     />
                                 ) : (
-                                    gw.id
+                                    gw.name
                                 )}
                             </DialogTitle>
                         </DialogHeader>
@@ -245,13 +244,29 @@ function GatewayDetailDialog({
 export default function GatewaysPage() {
     const { role } = useClientRole();
     const [gateways, setGateways] = useState<GatewayItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
     const [selectedGw, setSelectedGw] = useState<GatewayItem | null>(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
+    const fetchGateways = async () => {
+        try {
+            setLoading(true);
+            const res = await fetch("/api/inventory/gateways");
+            if (res.ok) {
+                const data = await res.json();
+                setGateways(data);
+            }
+        } catch (error) {
+            console.error("Failed to fetch gateways:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        setGateways(loadGwCatalog());
+        fetchGateways();
     }, []);
 
     const handleRowClick = (gw: GatewayItem) => {
@@ -264,31 +279,50 @@ export default function GatewaysPage() {
         setSelectedGw(null);
     };
 
-    const handleAddGateway = (newGw: GatewayItem) => {
-        const next = [...gateways, newGw];
-        setGateways(next);
-        saveGwCatalog(next);
+    const handleAddGateway = async (newGw: GatewayItem) => {
+        try {
+            const res = await fetch("/api/inventory/gateways", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(newGw),
+            });
+            if (res.ok) fetchGateways();
+        } catch (error) {
+            console.error("Failed to add gateway:", error);
+        }
     };
 
-    const handleUpdate = (sku: string, newQty: number, imageUrl?: string, newName?: string) => {
-        setGateways(prev => {
-            const next = prev.map(g => g.sku === sku ? { ...g, quantity: newQty, image: imageUrl !== undefined ? imageUrl : g.image, id: newName !== undefined ? newName : g.id } : g);
-            saveGwCatalog(next);
-            return next;
-        });
+    const handleUpdate = async (sku: string, newQty: number, imageUrl?: string, newName?: string) => {
+        try {
+            const res = await fetch("/api/inventory/gateways", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sku, quantity: newQty, image: imageUrl, name: newName }),
+            });
+            if (res.ok) fetchGateways();
+        } catch (error) {
+            console.error("Failed to update gateway:", error);
+        }
     };
 
-    const handleDelete = (e: React.MouseEvent, sku: string) => {
+    const handleDelete = async (e: React.MouseEvent, sku: string) => {
         e.stopPropagation();
-        setGateways(prev => {
-            const next = prev.filter(g => g.sku !== sku);
-            saveGwCatalog(next);
-            return next;
-        });
+        if (!confirm("Are you sure you want to delete this gateway?")) return;
+        try {
+            const res = await fetch(`/api/inventory/gateways?sku=${sku}`, {
+                method: "DELETE",
+            });
+            if (res.ok) fetchGateways();
+        } catch (error) {
+            console.error("Failed to delete gateway:", error);
+        }
     };
 
     const filtered = gateways.filter(g => {
-        const matchesSearch = g.id.toLowerCase().includes(search.toLowerCase()) || g.sku.toLowerCase().includes(search.toLowerCase());
+        const name = g.name || "";
+        const sku = g.sku || "";
+        const matchesSearch = name.toLowerCase().includes(search.toLowerCase()) || 
+                              sku.toLowerCase().includes(search.toLowerCase());
         const matchesWarehouse = warehouseFilter === "All Warehouses" || g.location === warehouseFilter;
         return matchesSearch && matchesWarehouse;
     });
@@ -355,13 +389,13 @@ export default function GatewaysPage() {
                                 <div className="flex items-center gap-4">
                                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors overflow-hidden border border-blue-100/50">
                                         {gw.image ? (
-                                            <img src={gw.image} alt={gw.id} className="h-full w-full object-cover" />
+                                            <img src={gw.image} alt={gw.name} className="h-full w-full object-cover" />
                                         ) : (
                                             <Radio className="h-5 w-5 text-blue-600" />
                                         )}
                                     </div>
                                     <div>
-                                        <p className="text-sm font-medium text-neutral-900">{gw.id}</p>
+                                        <p className="text-sm font-medium text-neutral-900">{gw.name}</p>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             <span className="text-[10px] text-neutral-500 font-mono bg-neutral-100 px-1.5 rounded">{gw.sku}</span>
                                             <span className="text-xs text-neutral-500">{gw.location}</span>

@@ -1,21 +1,12 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 // Initialize the Postgres Connection Pool.
-// Connection behavior scales automatically based on incoming load concurrently.
 const pool = new Pool({
-    // We expect standard connection strings universally supplied by Docker, Vercel, Supabase, Neon, etc.
-    // e.g., DATABASE_URL="postgresql://user:password@localhost:5432/pwx_inventory"
     connectionString: process.env.DATABASE_URL,
-    
-    // Uncomment the lines below if connecting to a strict cloud provider requiring SSL
-    /*
-    ssl: process.env.NODE_ENV === 'production' ? {
-        rejectUnauthorized: false
-    } : undefined
-    */
 });
 
-// Strict typing for retrieval mapped exactly to constraints in schema.sql
+// --- Types ---
+
 export type User = {
     id: number;
     name: string | null;
@@ -35,6 +26,7 @@ export type StockRequest = {
     requested_qty: number;
     requested_by: string; // email
     status: 'pending' | 'accepted' | 'declined';
+    is_processed: boolean;
     created_at: Date;
 };
 
@@ -48,12 +40,32 @@ export type Notification = {
     created_at: Date;
 };
 
-/**
- * Executes a dedicated secure query evaluating the user records by email constraints.
- * 
- * SECURITY: By enforcing the `$1` binding syntax array, the underlying Postgres driver parameterizes 
- * the query entirely, providing inherent defense against SQL Injection without manual sanitation.
- */
+export type ComponentItem = {
+    id: number;
+    sku: string;
+    name: string;
+    stock: number;
+    min_stock: number;
+    category: string;
+    warehouse: string;
+    image?: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+export type GatewayItem = {
+    id: number;
+    sku: string;
+    name: string;
+    location: string;
+    quantity: number;
+    image?: string;
+    created_at: Date;
+    updated_at: Date;
+};
+
+// --- Users ---
+
 export async function getUserByEmail(email: string): Promise<User | null> {
     try {
         const queryText = `
@@ -61,13 +73,11 @@ export async function getUserByEmail(email: string): Promise<User | null> {
             FROM users
             WHERE email = $1;
         `;
-        
         const { rows } = await pool.query(queryText, [email.toLowerCase()]);
-        
         return rows[0] || null;
     } catch (error) {
-        console.error("[CRITICAL DB EXCEPTION] Failed validating constraints for user lookup:", error);
-        throw new Error("Internal Database Disconnect");
+        console.error("[CRITICAL DB EXCEPTION] Failed user lookup:", error);
+        throw new Error("Internal Database Error");
     }
 }
 
@@ -78,12 +88,11 @@ export async function getAllUsers(): Promise<Omit<User, 'password_hash'>[]> {
             FROM users
             ORDER BY id ASC;
         `;
-        
         const { rows } = await pool.query(queryText);
         return rows;
     } catch (error) {
         console.error("Failed fetching all users:", error);
-        throw new Error("Internal Database Disconnect");
+        throw new Error("Internal Database Error");
     }
 }
 
@@ -100,39 +109,173 @@ export async function createUser(
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id, name, email, role, status, created_at, updated_at;
         `;
-        
         const { rows } = await pool.query(queryText, [name, email.toLowerCase(), passwordHash, role, status]);
         return rows[0];
     } catch (error: any) {
         console.error("Failed creating user:", error);
-        if (error.code === '23505') { // unique_violation postgres code
-            throw new Error("User with this email already exists");
-        }
+        if (error.code === '23505') throw new Error("User with this email already exists");
         throw new Error("Internal Database Error");
     }
 }
 
-export async function updateUserRole(email: string, role: string): Promise<void> {
+// --- Inventory (Components) ---
+
+export async function getInventoryComponents(): Promise<ComponentItem[]> {
     try {
-        const queryText = `
-            UPDATE users SET role = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE email = $2;
-        `;
-        await pool.query(queryText, [role, email.toLowerCase()]);
+        const { rows } = await pool.query("SELECT * FROM inventory_components ORDER BY name ASC");
+        return rows;
     } catch (error) {
-        console.error("Failed updating user role:", error);
+        console.error("Failed fetching components:", error);
         throw new Error("Internal Database Error");
     }
 }
 
-export async function deleteUserByEmail(email: string): Promise<void> {
+export async function upsertComponent(item: Partial<ComponentItem>): Promise<ComponentItem> {
     try {
         const queryText = `
-            DELETE FROM users WHERE email = $1;
+            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, image)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (sku, warehouse) 
+            DO UPDATE SET 
+                name = EXCLUDED.name,
+                stock = EXCLUDED.stock,
+                min_stock = EXCLUDED.min_stock,
+                category = EXCLUDED.category,
+                image = COALESCE(EXCLUDED.image, inventory_components.image),
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *;
         `;
-        await pool.query(queryText, [email.toLowerCase()]);
+        const { rows } = await pool.query(queryText, [
+            item.sku?.toUpperCase().trim(), 
+            item.name, 
+            item.stock, 
+            item.min_stock || (item as any).min || 0, 
+            item.category, 
+            item.warehouse || "PWX IoT Hub", 
+            item.image
+        ]);
+        return rows[0];
     } catch (error) {
-        console.error("Failed deleting user:", error);
+        console.error("Failed upserting component:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+/**
+ * Performs a partial update on a component identified by SKU and Warehouse.
+ */
+export async function updateComponent(sku: string, warehouse: string, updates: Partial<ComponentItem>): Promise<ComponentItem> {
+    try {
+        const fields: string[] = [];
+        const values: any[] = [];
+        let idx = 1;
+
+        if (updates.name !== undefined) { fields.push(`name = $${idx++}`); values.push(updates.name); }
+        if (updates.stock !== undefined) { fields.push(`stock = $${idx++}`); values.push(updates.stock); }
+        if (updates.min_stock !== undefined) { fields.push(`min_stock = $${idx++}`); values.push(updates.min_stock); }
+        if (updates.category !== undefined) { fields.push(`category = $${idx++}`); values.push(updates.category); }
+        if (updates.image !== undefined) { fields.push(`image = $${idx++}`); values.push(updates.image); }
+
+        if (fields.length === 0) throw new Error("No fields provided for update");
+
+        values.push(sku.toUpperCase().trim());
+        const skuIdx = idx++;
+        values.push(warehouse || "PWX IoT Hub");
+        const whIdx = idx++;
+
+        const queryText = `
+            UPDATE inventory_components 
+            SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+            WHERE sku = $${skuIdx} AND warehouse = $${whIdx}
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(queryText, values);
+        if (rows.length === 0) throw new Error("Component not found");
+        return rows[0];
+    } catch (error) {
+        console.error("Failed updating component:", error);
+        throw error;
+    }
+}
+
+
+/**
+ * Atomically adjusts component stock by a delta (positive or negative).
+ * Prevents race conditions and ensures stock doesn't go below 0.
+ */
+export async function adjustComponentStock(sku: string, warehouse: string, delta: number): Promise<ComponentItem> {
+    try {
+        const queryText = `
+            UPDATE inventory_components 
+            SET stock = GREATEST(0, stock + $1),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE sku = $2 AND warehouse = $3
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(queryText, [delta, sku.toUpperCase().trim(), warehouse || "PWX IoT Hub"]);
+        if (rows.length === 0) throw new Error("Component not found in specified warehouse");
+        return rows[0];
+    } catch (error) {
+        console.error("Failed adjusting component stock:", error);
+        throw error;
+    }
+}
+
+
+export async function deleteComponent(sku: string, warehouse: string): Promise<void> {
+    try {
+        await pool.query("DELETE FROM inventory_components WHERE sku = $1 AND warehouse = $2", [sku, warehouse]);
+    } catch (error) {
+        console.error("Failed deleting component:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+// --- Gateways ---
+
+export async function getGateways(): Promise<GatewayItem[]> {
+    try {
+        const { rows } = await pool.query("SELECT * FROM gateways ORDER BY name ASC");
+        return rows;
+    } catch (error) {
+        console.error("Failed fetching gateways:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function upsertGateway(gw: Partial<GatewayItem>): Promise<GatewayItem> {
+    try {
+        const queryText = `
+            INSERT INTO gateways (sku, name, location, quantity, image)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (sku) 
+            DO UPDATE SET 
+                name = EXCLUDED.name,
+                location = EXCLUDED.location,
+                quantity = EXCLUDED.quantity,
+                image = COALESCE(EXCLUDED.image, gateways.image),
+                updated_at = CURRENT_TIMESTAMP
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(queryText, [
+            gw.sku?.toUpperCase().trim(), 
+            gw.name, 
+            gw.location || "PWX IoT Hub", 
+            gw.quantity, 
+            gw.image
+        ]);
+        return rows[0];
+    } catch (error) {
+        console.error("Failed upserting gateway:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function deleteGateway(sku: string): Promise<void> {
+    try {
+        await pool.query("DELETE FROM gateways WHERE sku = $1", [sku]);
+    } catch (error) {
+        console.error("Failed deleting gateway:", error);
         throw new Error("Internal Database Error");
     }
 }
@@ -149,13 +292,18 @@ export async function createStockRequest(
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
         const queryText = `
             INSERT INTO stock_requests (type, item_sku, item_name, requested_qty, requested_by)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *;
         `;
-        const { rows } = await client.query(queryText, [type, itemSku, itemName, requestedQty, requestedBy.toLowerCase()]);
+        const { rows } = await client.query(queryText, [
+            type, 
+            itemSku.toUpperCase().trim(), 
+            itemName, 
+            requestedQty, 
+            requestedBy.toLowerCase().trim()
+        ]);
         const newRequest = rows[0];
 
         // Create notification for admins
@@ -187,30 +335,127 @@ export async function getStockRequests(): Promise<StockRequest[]> {
 }
 
 export async function updateStockRequestStatus(id: number, status: string): Promise<void> {
+    const client = await pool.connect();
     try {
-        await pool.query("UPDATE stock_requests SET status = $1 WHERE id = $2", [status, id]);
-    } catch (error) {
-        console.error("Failed updating stock request status:", error);
-        throw new Error("Internal Database Error");
+        await client.query('BEGIN');
+
+        // 1. Fetch the request
+        const { rows: reqRows } = await client.query("SELECT * FROM stock_requests WHERE id = $1 FOR UPDATE", [id]);
+        if (reqRows.length === 0) throw new Error("Request not found");
+        const request = reqRows[0] as StockRequest;
+
+        // Prevent double processing
+        if (request.is_processed && status === 'accepted') {
+            throw new Error("Request already processed and accepted.");
+        }
+
+        // 2. If accepting, attempt to deduct inventory
+        if (status === 'accepted' && !request.is_processed) {
+            const absQty = Math.abs(request.requested_qty);
+            console.log(`[STOCK_DEDUCTION_DEBUG] Processing Request ID: ${id}`);
+            console.log(`[STOCK_DEDUCTION_DEBUG] Item SKU: ${request.item_sku}, Type: ${request.type}`);
+            console.log(`[STOCK_DEDUCTION_DEBUG] Original Qty: ${request.requested_qty}, Normalized Qty: ${absQty}`);
+
+            if (request.type === 'component') {
+                // We need to know which warehouse. Since the request currently doesn't store warehouse, 
+                // we'll assume the request is for the SKU in any warehouse that has stock.
+                const { rows: compRows } = await client.query(
+                    "SELECT id, sku, stock, warehouse FROM inventory_components WHERE sku = $1 AND stock >= $2 LIMIT 1",
+                    [request.item_sku, absQty]
+                );
+                
+                if (compRows.length === 0) {
+                    const { rows: allWhRows } = await client.query(
+                        "SELECT warehouse, stock FROM inventory_components WHERE sku = $1",
+                        [request.item_sku]
+                    );
+                    const whStocks = allWhRows.map(r => `${r.warehouse}: ${r.stock}`).join(', ') || 'N/A';
+                    console.error(`[STOCK_DEDUCTION_FAILED] Insufficient stock for ${request.item_sku}. Needed: ${absQty}. Available: [${whStocks}]`);
+                    throw new Error(`Insufficient stock for ${request.item_sku}. Needed: ${absQty}. Available in warehouses: ${whStocks}`);
+                }
+                
+                const comp = compRows[0];
+                console.log(`[STOCK_DEDUCTION_SUCCESS] Deducting ${absQty} units from ${comp.sku} in ${comp.warehouse} (Stock before: ${comp.stock})`);
+                await client.query(
+                    "UPDATE inventory_components SET stock = stock - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+                    [absQty, comp.id]
+                );
+            } else {
+                const { rows: gwRows } = await client.query(
+                    "SELECT quantity FROM gateways WHERE sku = $1 AND quantity >= $2",
+                    [request.item_sku, absQty]
+                );
+                
+                if (gwRows.length === 0) {
+                    const { rows: currGw } = await client.query("SELECT quantity FROM gateways WHERE sku = $1", [request.item_sku]);
+                    const currentQty = currGw.length > 0 ? currGw[0].quantity : 0;
+                    console.error(`[STOCK_DEDUCTION_FAILED] Insufficient gateway stock for ${request.item_sku}. Needed: ${absQty}, Available: ${currentQty}`);
+                    throw new Error(`Insufficient gateway stock for ${request.item_sku}. Needed: ${absQty}, Available: ${currentQty}`);
+                }
+                
+                console.log(`[STOCK_DEDUCTION_SUCCESS] Deducting ${absQty} units from Gateway ${request.item_sku} (Stock before: ${gwRows[0].quantity})`);
+                await client.query(
+                    "UPDATE gateways SET quantity = quantity - $1, updated_at = CURRENT_TIMESTAMP WHERE sku = $2",
+                    [absQty, request.item_sku]
+                );
+            }
+        }
+
+        // 3. Update the request status and set is_processed
+        await client.query(
+            "UPDATE stock_requests SET status = $1, is_processed = TRUE WHERE id = $2",
+            [status, id]
+        );
+
+        // 4. Notify the user
+        const { rows: userRows } = await client.query("SELECT id FROM users WHERE email = $1", [request.requested_by]);
+        if (userRows.length > 0) {
+            const userId = userRows[0].id;
+            const msg = `Your request for ${request.requested_qty}x ${request.item_name} has been ${status}.`;
+            await client.query(
+                "INSERT INTO notifications (user_id, message, type, related_id) VALUES ($1, $2, $3, $4)",
+                [userId, msg, 'request_update', id]
+            );
+        }
+
+        await client.query('COMMIT');
+    } catch (error: any) {
+        await client.query('ROLLBACK');
+        console.error("Failed updating stock request status:", error.message);
+        throw error;
+    } finally {
+        client.release();
     }
 }
 
 // --- Notifications ---
 
-export async function createNotification(message: string, type: string, relatedId: number | null = null): Promise<void> {
+export async function createNotification(message: string, type: string, relatedId: number | null = null, userId: number | null = null): Promise<void> {
     try {
         await pool.query(`
-            INSERT INTO notifications (message, type, related_id)
-            VALUES ($1, $2, $3)
-        `, [message, type, relatedId]);
+            INSERT INTO notifications (message, type, related_id, user_id)
+            VALUES ($1, $2, $3, $4)
+        `, [message, type, relatedId, userId]);
     } catch (error) {
         console.error("Failed creating notification:", error);
     }
 }
 
-export async function getUnreadNotifications(): Promise<Notification[]> {
+export async function getUnreadNotifications(userId: number | null = null): Promise<Notification[]> {
     try {
-        const { rows } = await pool.query("SELECT * FROM notifications WHERE is_read = FALSE ORDER BY created_at DESC");
+        let query = "SELECT * FROM notifications WHERE is_read = FALSE ";
+        const params: any[] = [];
+
+        if (userId) {
+            query += "AND (user_id = $1 OR user_id IS NULL) ";
+            params.push(userId);
+        } else {
+            query += "AND user_id IS NULL ";
+        }
+
+        query += "ORDER BY created_at DESC";
+        
+        const { rows } = await pool.query(query, params);
         return rows;
     } catch (error) {
         console.error("Failed fetching notifications:", error);

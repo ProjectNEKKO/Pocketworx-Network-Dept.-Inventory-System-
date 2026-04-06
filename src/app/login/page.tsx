@@ -19,6 +19,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     // Client-side lockout state
     const [failedAttempts, setFailedAttempts] = useState(0);
@@ -62,6 +63,10 @@ export default function LoginPage() {
 
         setIsLoading(true);
 
+        if (process.env.NODE_ENV === "development") {
+            console.log("[AUTH DEBUG] Attempting login:", { email: data.email, password: data.password });
+        }
+
         try {
             await login(data.email, data.password);
 
@@ -80,8 +85,8 @@ export default function LoginPage() {
             }
 
             // Standard generic error response but pass rate limit messages through
-            const errorMessage = error instanceof Error && error.message.includes("attempts")
-                ? error.message
+            const errorMessage = error instanceof Error 
+                ? error.message 
                 : "Invalid credentials";
 
             setError("root", {
@@ -168,12 +173,22 @@ export default function LoginPage() {
                                 </div>
                                 <input
                                     id="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
                                     {...register("password")}
                                     autoComplete="current-password"
-                                    className={`w-full pl-11 pr-4 py-4 bg-slate-50 border rounded-xl focus:ring-2 outline-none transition-all text-slate-900 placeholder:text-slate-400 ${errors.password ? 'border-red-400 focus:ring-red-200 focus:border-red-500' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
+                                    className={`w-full pl-11 pr-12 py-4 bg-slate-50 border rounded-xl focus:ring-2 outline-none transition-all text-slate-900 placeholder:text-slate-400 ${errors.password ? 'border-red-400 focus:ring-red-200 focus:border-red-500' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-primary transition-colors focus:outline-none"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    <span className="material-symbols-outlined text-xl">
+                                        {showPassword ? "visibility_off" : "visibility"}
+                                    </span>
+                                </button>
                             </div>
                             {errors.password && (
                                 <p className="text-red-500 text-xs font-medium ml-1 mt-1">{errors.password.message}</p>
