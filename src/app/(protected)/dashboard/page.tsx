@@ -67,13 +67,39 @@ import { downloadExcelTemplate, processExcelImport, ImportResult } from "@/lib/e
 import { toast } from "sonner";
 import { ComponentItem } from "../components/add_components";
 import { GatewayItem } from "../gateways/add_gateways";
-function relTime(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime();
+function formatActivityDate(iso: string) {
+    const date = new Date(iso);
+    const diff = Date.now() - date.getTime();
+    const threeDays = 3 * 24 * 60 * 60 * 1000;
+    
+    if (diff > threeDays) {
+        const options: Intl.DateTimeFormatOptions = { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+        return date.toLocaleDateString('en-US', options).replace(/ at |, /g, ' - ').replace('--', '-');
+    }
+    
     const m = Math.floor(diff / 60000);
     if (m < 1) return "just now";
-    if (m < 60) return `${m}m ago`;
+    if (m < 60) return `${m} mins ago`;
     const h = Math.floor(m / 60);
-    return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+    if (h < 24) return `${h} hrs ago`;
+    const d = Math.floor(h / 24);
+    if (d === 1) return "Yesterday";
+    return `${d} days ago`;
+}
+
+function getActivityDisplay(action: string) {
+    const act = action.toLowerCase();
+    if (act.includes('removed') || act.includes('declined') || act.includes('deleted')) {
+        return { icon: AlertTriangle, color: "bg-red-100 text-red-600" };
+    }
+    if (act.includes('added') || act.includes('created') || act.includes('registered')) {
+        if (act.includes('gateway')) return { icon: Radio, color: "bg-blue-100 text-blue-600" };
+        return { icon: PackagePlus, color: "bg-violet-100 text-violet-600" };
+    }
+    if (act.includes('gateway')) {
+        return { icon: Radio, color: "bg-blue-100 text-blue-600" };
+    }
+    return { icon: RefreshCw, color: "bg-amber-100 text-amber-600" };
 }
 
 // Stats data moved inside component to access state
@@ -123,74 +149,7 @@ const notificationsList = [
 ];
 
 
-const recentActivity = [
-    {
-        icon: PackagePlus, color: "bg-violet-100 text-violet-600", action: "Component Added", detail: "915Mhz Lora Antenna 3.8dBi × 10", time: "2 min ago", user: "John Doe",
-        itemHistory: [
-            { action: "Stock Updated", detail: "Added 10 pcs via purchase order", time: "2 min ago", user: "John Doe" },
-            { action: "Location Assigned", detail: "Moved to PWX IoT Hub Shelf A2", time: "1 day ago", user: "Admin Setup" },
-            { action: "Min Stock Level Set", detail: "Minimum set to 100", time: "3 days ago", user: "Jane Smith" },
-            { action: "Component Created", detail: "Initial Registration", time: "1 week ago", user: "Admin Setup" }
-        ]
-    },
-    {
-        icon: Radio, color: "bg-blue-100 text-blue-600", action: "Gateway Registered", detail: "Gateway 915 Outdoor — PWX IoT Hub", time: "18 min ago", user: "Admin Setup",
-        itemHistory: [
-            { action: "Gateway Registered", detail: "Registered to PWX IoT Hub", time: "18 min ago", user: "Admin Setup" },
-            { action: "Firmware Updated", detail: "Flashed v2.1.0", time: "1 day ago", user: "System" },
-            { action: "Provisioned", detail: "Added to provisioning queue", time: "2 days ago", user: "John Doe" }
-        ]
-    },
-    {
-        icon: RefreshCw, color: "bg-amber-100 text-amber-600", action: "Stock Updated", detail: "CAT5e Cable: 120 → 145 pcs", time: "1 hr ago", user: "Jane Smith",
-        itemHistory: [
-            { action: "Stock Updated", detail: "120 → 145 pcs", time: "1 hr ago", user: "Jane Smith" },
-            { action: "Stock Removed", detail: "150 → 120 pcs", time: "2 days ago", user: "John Doe" },
-            { action: "Price Updated", detail: "Unit cost changed to PHP 35", time: "1 week ago", user: "Admin Setup" },
-            { action: "Location Changed", detail: "Moved to Wire Rack B", time: "2 weeks ago", user: "Jane Smith" },
-            { action: "Component Created", detail: "Initial Registration", time: "1 month ago", user: "Admin Setup" }
-        ]
-    },
-    {
-        icon: FileStack, color: "bg-orange-100 text-orange-600", action: "BOM Created", detail: "PWX Gateway v3.3 — Rev A", time: "3 hrs ago", user: "Admin Setup",
-        itemHistory: [
-            { action: "BOM Created", detail: "Version 3.3 revision A created", time: "3 hrs ago", user: "Admin Setup" },
-            { action: "Draft Saved", detail: "Initial component list", time: "4 hrs ago", user: "Admin Setup" }
-        ]
-    },
-    {
-        icon: PackagePlus, color: "bg-violet-100 text-violet-600", action: "Component Added", detail: "M5 Bolts and Nuts × 200", time: "5 hrs ago", user: "John Doe",
-        itemHistory: [
-            { action: "Stock Updated", detail: "Added 200 pcs", time: "5 hrs ago", user: "John Doe" },
-            { action: "Stock Removed", detail: "Used 50 pcs for Gateway Assembly", time: "2 days ago", user: "Jane Smith" },
-            { action: "Component Created", detail: "Initial Registration", time: "3 weeks ago", user: "Admin Setup" }
-        ]
-    },
-    {
-        icon: RefreshCw, color: "bg-emerald-100 text-emerald-600", action: "Stock Updated", detail: "PoE Adaptor 24v: 40 → 55 pcs", time: "Yesterday", user: "Jane Smith",
-        itemHistory: [
-            { action: "Stock Updated", detail: "40 → 55 pcs", time: "Yesterday", user: "Jane Smith" },
-            { action: "Stock Removed", detail: "60 → 40 pcs (BOM Fulfillment)", time: "5 days ago", user: "John Doe" },
-            { action: "Location Verified", detail: "Audited Bin C4", time: "2 weeks ago", user: "Admin Setup" },
-            { action: "Component Created", detail: "Initial Registration", time: "2 months ago", user: "Admin Setup" }
-        ]
-    },
-    {
-        icon: Radio, color: "bg-blue-100 text-blue-600", action: "Gateway Registered", detail: "Femto Outdoor — Jenny's", time: "Yesterday", user: "Admin Setup",
-        itemHistory: [
-            { action: "Gateway Registered", detail: "Registered to Jenny's", time: "Yesterday", user: "Admin Setup" },
-            { action: "Status Changed", detail: "Marked as Ready to Deploy", time: "2 days ago", user: "System" },
-            { action: "Provisioned", detail: "Added to network", time: "3 days ago", user: "Jane Smith" }
-        ]
-    },
-    {
-        icon: PlusCircle, color: "bg-emerald-100 text-emerald-600", action: "Location Added", detail: "PWX IoT Hub — Zone B (12 bins)", time: "2 days ago", user: "John Doe",
-        itemHistory: [
-            { action: "Location Added", detail: "Created Zone B with 12 bins", time: "2 days ago", user: "John Doe" },
-            { action: "Capacity Planning", detail: "Drafted layout for Zone B", time: "1 week ago", user: "Admin Setup" }
-        ]
-    },
-];
+// recentActivity is now dynamic state in DashboardPage
 
 interface TooltipProps {
     active?: boolean;
@@ -274,12 +233,23 @@ export default function DashboardPage() {
     const { role } = useClientRole();
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [historySearch, setHistorySearch] = useState("");
-    const [selectedHistoryItem, setSelectedHistoryItem] = useState<typeof recentActivity[0] | null>(null);
+    const [selectedHistoryItem, setSelectedHistoryItem] = useState<{
+        id: number;
+        icon: any;
+        color: string;
+        action: string;
+        detail: string;
+        time: string;
+        user: string;
+        rawItemSku: string | null;
+        itemHistory: Array<{ action: string; detail: string; time: string; user: string }>;
+    } | null>(null);
     const [isCriticalAlertsOpen, setIsCriticalAlertsOpen] = useState(false);
     const [importPreview, setImportPreview] = useState<ImportResult | null>(null);
     const [isImporting, setIsImporting] = useState(false);
     const [stats, setStats] = useState<DashboardSummary | null>(null);
     const [period, setPeriod] = useState<keyof typeof chartData>("Today");
+    const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
     const gatewayColors = ["#3b82f6", "#60a5fa", "#93c5fd"];
     const componentColors = ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"];
@@ -356,12 +326,62 @@ export default function DashboardPage() {
             }
         }
         fetchStats();
+
+        async function fetchLogs() {
+            try {
+                const res = await fetch("/api/activity");
+                if (res.ok) {
+                    const data = await res.json();
+                    setActivityLogs(data);
+                }
+            } catch (err) {
+                console.error("Failed fetching activity logs", err);
+            }
+        }
+        fetchLogs();
+
+        const sse = new EventSource("/api/activity/stream");
+        sse.addEventListener("activity_update", (e) => {
+            try {
+                const newLog = JSON.parse(e.data);
+                setActivityLogs((prev) => [newLog, ...prev]);
+            } catch (err) {
+                console.error("Failed parsing activity stream", err);
+            }
+        });
+
+        return () => {
+            sse.close();
+        };
     }, []);
 
-    const filteredHistory = recentActivity.filter(item =>
-        item.action.toLowerCase().includes(historySearch.toLowerCase()) ||
-        item.detail.toLowerCase().includes(historySearch.toLowerCase()) ||
-        item.user.toLowerCase().includes(historySearch.toLowerCase())
+    // Map dynamic logs to expected UI payload
+    const mappedLogs = activityLogs.map(log => {
+        const display = getActivityDisplay(log.action || "");
+        return {
+            id: log.id,
+            icon: display.icon,
+            color: display.color,
+            action: log.action || "Unknown Action",
+            detail: log.detail || "",
+            time: formatActivityDate(log.created_at),
+            user: log.user_name || log.user_email || "System",
+            rawItemSku: log.item_sku,
+            itemHistory: activityLogs
+                .filter(l => l.item_sku && l.item_sku === log.item_sku)
+                .map(l => ({
+                    action: l.action || "Unknown Action",
+                    detail: l.detail || "",
+                    time: formatActivityDate(l.created_at),
+                    user: l.user_name || l.user_email || "System"
+                }))
+        };
+    });
+
+    const filteredHistory = mappedLogs.filter(item =>
+        (item.action || "").toLowerCase().includes(historySearch.toLowerCase()) ||
+        (item.detail || "").toLowerCase().includes(historySearch.toLowerCase()) ||
+        (item.user || "").toLowerCase().includes(historySearch.toLowerCase())
     );
 
     const activeData = chartData[period];
@@ -663,7 +683,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-1">
-                        {recentActivity.map((item, i) => (
+                        {mappedLogs.slice(0, 8).map((item, i) => (
                             <div key={i} className="flex items-center gap-4 px-3 py-3 rounded-xl hover:bg-neutral-50 transition-colors">
                                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.color}`}>
                                     <item.icon className="h-4 w-4" />

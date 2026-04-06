@@ -64,6 +64,15 @@ export type GatewayItem = {
     updated_at: Date;
 };
 
+export type ActivityLog = {
+    id: number;
+    action: string;
+    detail: string;
+    user_name: string;
+    item_sku: string | null;
+    created_at: Date;
+};
+
 // --- Users ---
 
 export async function getUserByEmail(email: string): Promise<User | null> {
@@ -408,7 +417,7 @@ export async function getStockRequests(): Promise<StockRequest[]> {
     }
 }
 
-export async function updateStockRequestStatus(id: number, status: string): Promise<void> {
+export async function updateStockRequestStatus(id: number, status: string, processedBy?: string): Promise<void> {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -481,6 +490,14 @@ export async function updateStockRequestStatus(id: number, status: string): Prom
             [status, id]
         );
 
+        if (processedBy) {
+            const actionStr = status === 'accepted' ? 'Stock Disbursed' : 'Request Declined';
+            const detailStr = status === 'accepted' 
+                ? `${request.requested_qty}x ${request.item_name} disbursed for request`
+                : `${request.requested_qty}x ${request.item_name} request declined`;
+            await logActivity(actionStr, detailStr, processedBy, request.item_sku);
+        }
+
         // 4. Notify the user
         const { rows: userRows } = await client.query("SELECT id FROM users WHERE email = $1", [request.requested_by]);
         if (userRows.length > 0) {
@@ -545,6 +562,79 @@ export async function markNotificationAsRead(id: number): Promise<void> {
         throw new Error("Internal Database Error");
     }
 }
+
+// --- Activity Logs ---
+
+export async function logActivity(action: string, detail: string, emailOrName: string, itemSku: string | null = null): Promise<void> {
+    try {
+        let userName = emailOrName;
+        if (emailOrName.includes('@')) {
+            const { rows } = await pool.query("SELECT name FROM users WHERE email = $1", [emailOrName]);
+            if (rows.length > 0 && rows[0].name) {
+                userName = rows[0].name;
+            } else {
+                userName = emailOrName.split('@')[0];
+            }
+        }
+
+        // Ensure the table schema has our new columns
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS activity_logs (
+                id SERIAL PRIMARY KEY,
+                action TEXT NOT NULL,
+                detail TEXT NOT NULL,
+                user_name VARCHAR(255),
+                user_email VARCHAR(255),
+                icon_type VARCHAR(255),
+                color_class VARCHAR(255),
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+            ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS item_sku TEXT;
+            CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_activity_logs_item_sku ON activity_logs(item_sku);
+        `);
+
+        // We map the incoming emailOrName to both user_name and user_email
+        const { rows } = await pool.query(`
+            INSERT INTO activity_logs (action, detail, user_name, user_email, item_sku)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        `, [action, detail, userName, emailOrName, itemSku]);
+        
+        const { sseManager } = require('./sse-clients');
+        sseManager.broadcast("activity_update", rows[0]);
+    } catch (error) {
+        console.error("Failed creating activity log:", error);
+    }
+}
+
+export async function getActivityLogs(): Promise<ActivityLog[]> {
+    try {
+        const { rows } = await pool.query("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 200");
+        return rows;
+    } catch (error) {
+        // Table might not exist yet if no action has happened
+        if ((error as any).code === '42P01') {
+            return [];
+        }
+        console.error("Failed fetching activity logs:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function getItemActivityLogs(itemSku: string): Promise<ActivityLog[]> {
+    try {
+        const { rows } = await pool.query("SELECT * FROM activity_logs WHERE item_sku = $1 ORDER BY created_at DESC", [itemSku]);
+        return rows;
+    } catch (error) {
+        if ((error as any).code === '42P01') {
+            return [];
+        }
+        console.error("Failed fetching item activity logs:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
 // --- Dashboard Stats ---
 
 export type DashboardSummary = {
