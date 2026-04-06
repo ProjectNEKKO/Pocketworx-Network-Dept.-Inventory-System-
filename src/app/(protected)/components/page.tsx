@@ -30,10 +30,10 @@ import { AddComponentsDialog, ComponentItem } from "./add_components";
 import { addRequest } from "@/lib/stock-requests";
 import { exportComponentsToExcel } from "@/lib/excel-import";
 
-function getStatusInfo(stock: number, min: number) {
+function getStatusInfo(stock: number, minStock: number) {
     if (stock <= 0) return { status: "Out of Stock", statusClasses: "border-red-200 bg-red-50 text-red-700", textClass: "text-red-700 font-bold" };
-    if (stock <= min) return { status: "Critical", statusClasses: "border-orange-200 bg-orange-50 text-orange-700", textClass: "text-orange-700 font-bold" };
-    if (stock <= min * 1.5) return { status: "Low", statusClasses: "border-amber-200 bg-amber-50 text-amber-700", textClass: "text-amber-700 font-semibold" };
+    if (stock <= minStock) return { status: "Critical", statusClasses: "border-orange-200 bg-orange-50 text-orange-700", textClass: "text-orange-700 font-bold" };
+    if (stock <= minStock * 1.5) return { status: "Low", statusClasses: "border-amber-200 bg-amber-50 text-amber-700", textClass: "text-amber-700 font-semibold" };
     return { status: "Good", statusClasses: "border-emerald-200 bg-emerald-50 text-emerald-700", textClass: "text-emerald-700 font-medium" };
 }
 
@@ -48,11 +48,12 @@ function ComponentDetailDialog({
     comp: ComponentItem | null;
     open: boolean;
     onClose: () => void;
-    onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string) => void;
+    onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number) => void;
     role: string;
 }) {
     const [inputValue, setInputValue] = useState<string>("");
     const [nameValue, setNameValue] = useState<string>("");
+    const [minStockValue, setMinStockValue] = useState<string>("");
     const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
     // User: withdrawal request quantity
     const [reqQty, setReqQty] = useState<string>("1");
@@ -67,6 +68,7 @@ function ComponentDetailDialog({
         if (comp && open) {
             setInputValue(comp.stock.toString());
             setNameValue(comp.name);
+            setMinStockValue((comp.min_stock ?? 0).toString());
             setImageUrl(comp.image);
             setReqQty("1");
             setSubmitted(false);
@@ -92,8 +94,11 @@ function ComponentDetailDialog({
 
     function handleSave() {
         if (!comp) return;
-        console.log(`[DEBUG] Saving Quantity: ${safeQty} for SKU: ${comp.sku}`);
-        onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue);
+        const safeMin = parseInt(minStockValue, 10);
+        const finalMin = isNaN(safeMin) ? (comp.min_stock || 0) : safeMin;
+        
+        console.log(`[DEBUG] Saving: Stock=${safeQty}, Min=${finalMin} for SKU: ${comp.sku}`);
+        onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue, finalMin);
         onClose();
     }
 
@@ -115,8 +120,7 @@ function ComponentDetailDialog({
     }
 
     if (!comp) return null;
-
-    const { status, statusClasses } = getStatusInfo(safeQty, comp.min);
+    const { status, statusClasses } = getStatusInfo(safeQty, comp.min_stock || 0);
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -178,7 +182,22 @@ function ComponentDetailDialog({
                     <div className="grid grid-cols-2 gap-2.5">
                         <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Critical Stock</span>
-                            <span className="font-semibold text-neutral-900 text-base">{comp.min} <span className="text-xs text-neutral-400 font-normal">pcs</span></span>
+                            <span className="font-semibold text-neutral-900 text-base">
+                                {role === "admin" ? (
+                                    <div className="flex items-center gap-1">
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={minStockValue}
+                                            onChange={(e) => { if (/^\d*$/.test(e.target.value)) setMinStockValue(e.target.value); }}
+                                            className="w-12 bg-transparent border-b border-neutral-300 focus:border-violet-500 focus:outline-none text-center"
+                                        />
+                                        <span className="text-xs text-neutral-400 font-normal">pcs</span>
+                                    </div>
+                                ) : (
+                                    <>{comp.min_stock} <span className="text-xs text-neutral-400 font-normal">pcs</span></>
+                                )}
+                            </span>
                         </div>
                         <div className="flex flex-col gap-1 p-3 rounded-xl bg-neutral-50/80 border border-neutral-100">
                             <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Current Qty</span>
@@ -328,13 +347,13 @@ export default function ComponentsPage() {
         setDialogOpen(true);
     };
 
-    const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string) => {
+    const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number) => {
         try {
-            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}`);
+            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}, New Min: ${minStock}`);
             const res = await fetch("/api/inventory/components", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName }),
+                body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName, min_stock: minStock }),
             });
             const updated = await res.json();
             console.log(`[API_PATCH_RESPONSE] Status: ${res.status}`, updated);
@@ -401,7 +420,7 @@ export default function ComponentsPage() {
                         Track and manage electronic components inventory
                     </p>
                 </div>
-                {role === "admin" && (
+                {(role === "admin" || role === "co-admin") && (
                     <div className="flex items-center gap-2">
                         <Button 
                             variant="outline"
@@ -453,7 +472,7 @@ export default function ComponentsPage() {
                 <CardContent>
                     <div className="space-y-3">
                         {filtered.map((comp) => {
-                            const { status, statusClasses, textClass } = getStatusInfo(comp.stock, comp.min);
+                            const { status, statusClasses, textClass } = getStatusInfo(comp.stock, comp.min_stock || 0);
 
                             return (
                                 <div

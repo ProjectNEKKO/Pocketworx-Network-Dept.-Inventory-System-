@@ -57,7 +57,7 @@ function GatewayDetailDialog({
         setPrevOpen(open);
         if (gw && open) {
             setInputValue(gw.quantity.toString());
-            setNameValue(gw.id);
+            setNameValue(gw.name);
             setImageUrl(gw.image);
             setReqQty("1");
             setSubmitted(false);

@@ -96,11 +96,38 @@ export async function getAllUsers(): Promise<Omit<User, 'password_hash'>[]> {
     }
 }
 
+export async function updateUserRole(email: string, role: 'admin' | 'co-admin' | 'user'): Promise<void> {
+    try {
+        const queryText = `
+            UPDATE users
+            SET role = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE email = $2;
+        `;
+        await pool.query(queryText, [role, email.toLowerCase()]);
+    } catch (error) {
+        console.error("Failed updating user role:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
+export async function deleteUserByEmail(email: string): Promise<void> {
+    try {
+        const queryText = `
+            DELETE FROM users
+            WHERE email = $1;
+        `;
+        await pool.query(queryText, [email.toLowerCase()]);
+    } catch (error) {
+        console.error("Failed deleting user:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
 export async function createUser(
-    name: string, 
-    email: string, 
-    passwordHash: string, 
-    role: string, 
+    name: string,
+    email: string,
+    passwordHash: string,
+    role: string,
     status: string = 'Active'
 ): Promise<User> {
     try {
@@ -146,12 +173,12 @@ export async function upsertComponent(item: Partial<ComponentItem>): Promise<Com
             RETURNING *;
         `;
         const { rows } = await pool.query(queryText, [
-            item.sku?.toUpperCase().trim(), 
-            item.name, 
-            item.stock, 
-            item.min_stock || (item as any).min || 0, 
-            item.category, 
-            item.warehouse || "PWX IoT Hub", 
+            item.sku?.toUpperCase().trim(),
+            item.name,
+            item.stock,
+            item.min_stock || (item as any).min || 0,
+            item.category,
+            item.warehouse || "PWX IoT Hub",
             item.image
         ]);
         return rows[0];
@@ -161,18 +188,59 @@ export async function upsertComponent(item: Partial<ComponentItem>): Promise<Com
     }
 }
 
+export async function logCriticalStockChange(sku: string, warehouse: string, oldVal: number, newVal: number, changedBy: string): Promise<void> {
+    try {
+        // Ensure table exists (Phase 2 Robustness)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS critical_stock_logs (
+                id SERIAL PRIMARY KEY,
+                item_sku TEXT NOT NULL,
+                warehouse TEXT NOT NULL,
+                old_value INTEGER NOT NULL,
+                new_value INTEGER NOT NULL,
+                changed_by TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_critical_stock_sku ON critical_stock_logs(item_sku);
+        `);
+
+        const query = `
+            INSERT INTO critical_stock_logs (item_sku, warehouse, old_value, new_value, changed_by)
+            VALUES ($1, $2, $3, $4, $5)
+        `;
+        await pool.query(query, [sku.toUpperCase().trim(), warehouse, oldVal, newVal, changedBy]);
+    } catch (error) {
+        console.error("Failed to log critical stock change:", error);
+    }
+}
+
 /**
  * Performs a partial update on a component identified by SKU and Warehouse.
  */
-export async function updateComponent(sku: string, warehouse: string, updates: Partial<ComponentItem>): Promise<ComponentItem> {
+export async function updateComponent(sku: string, warehouse: string, updates: Partial<ComponentItem>, changedBy?: string): Promise<ComponentItem> {
     try {
+        // Fetch current values first if we are updating min_stock and need to log
+        // Support 'min' as an alias for 'min_stock' in updates
+        const minStockToUpdate = updates.min_stock !== undefined ? updates.min_stock : (updates as any).min;
+        let oldMinStock: number | undefined;
+        
+        if (minStockToUpdate !== undefined && changedBy) {
+            const { rows: currentRows } = await pool.query(
+                "SELECT min_stock FROM inventory_components WHERE sku = $1 AND warehouse = $2",
+                [sku.toUpperCase().trim(), warehouse || "PWX IoT Hub"]
+            );
+            if (currentRows.length > 0) {
+                oldMinStock = currentRows[0].min_stock;
+            }
+        }
+
         const fields: string[] = [];
         const values: any[] = [];
         let idx = 1;
 
         if (updates.name !== undefined) { fields.push(`name = $${idx++}`); values.push(updates.name); }
         if (updates.stock !== undefined) { fields.push(`stock = $${idx++}`); values.push(updates.stock); }
-        if (updates.min_stock !== undefined) { fields.push(`min_stock = $${idx++}`); values.push(updates.min_stock); }
+        if (minStockToUpdate !== undefined) { fields.push(`min_stock = $${idx++}`); values.push(minStockToUpdate); }
         if (updates.category !== undefined) { fields.push(`category = $${idx++}`); values.push(updates.category); }
         if (updates.image !== undefined) { fields.push(`image = $${idx++}`); values.push(updates.image); }
 
@@ -189,9 +257,15 @@ export async function updateComponent(sku: string, warehouse: string, updates: P
             WHERE sku = $${skuIdx} AND warehouse = $${whIdx}
             RETURNING *;
         `;
-        const { rows } = await pool.query(queryText, values);
-        if (rows.length === 0) throw new Error("Component not found");
-        return rows[0];
+        const result = await pool.query(queryText, values);
+        if (result.rows.length === 0) throw new Error("Component not found");
+
+        // Log the change if min_stock was changed
+        if (minStockToUpdate !== undefined && changedBy && oldMinStock !== undefined && oldMinStock !== minStockToUpdate) {
+            await logCriticalStockChange(sku, warehouse, oldMinStock, minStockToUpdate, changedBy);
+        }
+
+        return result.rows[0];
     } catch (error) {
         console.error("Failed updating component:", error);
         throw error;
@@ -258,10 +332,10 @@ export async function upsertGateway(gw: Partial<GatewayItem>): Promise<GatewayIt
             RETURNING *;
         `;
         const { rows } = await pool.query(queryText, [
-            gw.sku?.toUpperCase().trim(), 
-            gw.name, 
-            gw.location || "PWX IoT Hub", 
-            gw.quantity, 
+            gw.sku?.toUpperCase().trim(),
+            gw.name,
+            gw.location || "PWX IoT Hub",
+            gw.quantity,
             gw.image
         ]);
         return rows[0];
@@ -298,10 +372,10 @@ export async function createStockRequest(
             RETURNING *;
         `;
         const { rows } = await client.query(queryText, [
-            type, 
-            itemSku.toUpperCase().trim(), 
-            itemName, 
-            requestedQty, 
+            type,
+            itemSku.toUpperCase().trim(),
+            itemName,
+            requestedQty,
             requestedBy.toLowerCase().trim()
         ]);
         const newRequest = rows[0];
@@ -363,7 +437,7 @@ export async function updateStockRequestStatus(id: number, status: string): Prom
                     "SELECT id, sku, stock, warehouse FROM inventory_components WHERE sku = $1 AND stock >= $2 LIMIT 1",
                     [request.item_sku, absQty]
                 );
-                
+
                 if (compRows.length === 0) {
                     const { rows: allWhRows } = await client.query(
                         "SELECT warehouse, stock FROM inventory_components WHERE sku = $1",
@@ -373,7 +447,7 @@ export async function updateStockRequestStatus(id: number, status: string): Prom
                     console.error(`[STOCK_DEDUCTION_FAILED] Insufficient stock for ${request.item_sku}. Needed: ${absQty}. Available: [${whStocks}]`);
                     throw new Error(`Insufficient stock for ${request.item_sku}. Needed: ${absQty}. Available in warehouses: ${whStocks}`);
                 }
-                
+
                 const comp = compRows[0];
                 console.log(`[STOCK_DEDUCTION_SUCCESS] Deducting ${absQty} units from ${comp.sku} in ${comp.warehouse} (Stock before: ${comp.stock})`);
                 await client.query(
@@ -385,14 +459,14 @@ export async function updateStockRequestStatus(id: number, status: string): Prom
                     "SELECT quantity FROM gateways WHERE sku = $1 AND quantity >= $2",
                     [request.item_sku, absQty]
                 );
-                
+
                 if (gwRows.length === 0) {
                     const { rows: currGw } = await client.query("SELECT quantity FROM gateways WHERE sku = $1", [request.item_sku]);
                     const currentQty = currGw.length > 0 ? currGw[0].quantity : 0;
                     console.error(`[STOCK_DEDUCTION_FAILED] Insufficient gateway stock for ${request.item_sku}. Needed: ${absQty}, Available: ${currentQty}`);
                     throw new Error(`Insufficient gateway stock for ${request.item_sku}. Needed: ${absQty}, Available: ${currentQty}`);
                 }
-                
+
                 console.log(`[STOCK_DEDUCTION_SUCCESS] Deducting ${absQty} units from Gateway ${request.item_sku} (Stock before: ${gwRows[0].quantity})`);
                 await client.query(
                     "UPDATE gateways SET quantity = quantity - $1, updated_at = CURRENT_TIMESTAMP WHERE sku = $2",
@@ -454,7 +528,7 @@ export async function getUnreadNotifications(userId: number | null = null): Prom
         }
 
         query += "ORDER BY created_at DESC";
-        
+
         const { rows } = await pool.query(query, params);
         return rows;
     } catch (error) {
@@ -468,6 +542,83 @@ export async function markNotificationAsRead(id: number): Promise<void> {
         await pool.query("UPDATE notifications SET is_read = TRUE WHERE id = $1", [id]);
     } catch (error) {
         console.error("Failed marking notification as read:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+// --- Dashboard Stats ---
+
+export type DashboardSummary = {
+    gateways: { 
+        total: number; 
+        categories: { name: string; count: number; items: { name: string; location: string }[] }[] 
+    };
+    components: { 
+        total: number; 
+        categories: { name: string; count: number; items: { name: string; sku: string; stock: number }[] }[] 
+    };
+    alerts: { 
+        total: number; 
+        categories: { name: string; count: number; items: ComponentItem[] }[] 
+    };
+};
+
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+    try {
+        const [gwRes, compRes] = await Promise.all([
+            pool.query("SELECT name, location, type FROM gateways ORDER BY name ASC"),
+            pool.query("SELECT * FROM inventory_components ORDER BY name ASC")
+        ]);
+
+        const allGateways = gwRes.rows;
+        const allComponents = compRes.rows as ComponentItem[];
+        const criticalAlerts = allComponents.filter(c => c.stock <= c.min_stock);
+
+        // 1. Group Gateways by Type
+        const gwGroup: Record<string, { name: string; count: number; items: any[] }> = {};
+        const gwTypes = ['Femto Outdoor', 'Gateway 868 Indoor & Outdoor', 'Gateway 915 Indoor & Outdoor'];
+        gwTypes.forEach(t => gwGroup[t] = { name: t, count: 0, items: [] });
+        
+        allGateways.forEach(g => {
+            const type = g.type || 'Gateway 915 Indoor & Outdoor';
+            if (!gwGroup[type]) gwGroup[type] = { name: type, count: 0, items: [] };
+            gwGroup[type].count++;
+            gwGroup[type].items.push({ name: g.name, location: g.location });
+        });
+
+        // 2. Group Components by Category
+        const compGroup: Record<string, { name: string; count: number; items: any[] }> = {};
+        allComponents.forEach(c => {
+            const cat = c.category || 'Uncategorized';
+            if (!compGroup[cat]) compGroup[cat] = { name: cat, count: 0, items: [] };
+            compGroup[cat].count++;
+            compGroup[cat].items.push({ name: c.name, sku: c.sku, stock: c.stock });
+        });
+
+        // 3. Group Critical Alerts by Category
+        const alertGroup: Record<string, { name: string; count: number; items: any[] }> = {};
+        criticalAlerts.forEach(c => {
+            const cat = c.category || 'Uncategorized';
+            if (!alertGroup[cat]) alertGroup[cat] = { name: cat, count: 0, items: [] };
+            alertGroup[cat].count++;
+            alertGroup[cat].items.push(c);
+        });
+
+        return {
+            gateways: {
+                total: allGateways.length,
+                categories: Object.values(gwGroup).filter(g => g.count > 0)
+            },
+            components: {
+                total: allComponents.length,
+                categories: Object.values(compGroup).sort((a,b) => b.count - a.count)
+            },
+            alerts: {
+                total: criticalAlerts.length,
+                categories: Object.values(alertGroup).sort((a,b) => b.count - a.count)
+            }
+        };
+    } catch (error) {
+        console.error("Failed fetching dashboard summary:", error);
         throw new Error("Internal Database Error");
     }
 }

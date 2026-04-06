@@ -3,16 +3,16 @@ import type { GatewayItem } from "@/app/(protected)/gateways/add_gateways";
 export const GATEWAY_CATALOG_KEY = "pwx_gateway_catalog";
 
 export const initialGateways: GatewayItem[] = [
-    { id: "Gateway 915 Outdoor", sku: "GW-915-OA", location: "PWX IoT Hub", quantity: 1 },
-    { id: "Gateway 868 Outdoor", sku: "GW-868-OA", location: "PWX IoT Hub", quantity: 2 },
-    { id: "Gateway 915 Indoor", sku: "GW-915-IA", location: "PWX IoT Hub", quantity: 1 },
-    { id: "Gateway 868 Indoor", sku: "GW-868-IA", location: "PWX IoT Hub", quantity: 5 },
-    { id: "Femto Outdoor", sku: "GW-FM-OA", location: "PWX IoT Hub", quantity: 3 },
-    { id: "Gateway 915 Outdoor", sku: "GW-915-OB", location: "Jenny's", quantity: 2 },
-    { id: "Gateway 868 Outdoor", sku: "GW-868-OB", location: "Jenny's", quantity: 1 },
-    { id: "Gateway 915 Indoor", sku: "GW-915-IB", location: "Jenny's", quantity: 3 },
-    { id: "Gateway 868 Indoor", sku: "GW-868-IB", location: "Jenny's", quantity: 2 },
-    { id: "Femto Outdoor", sku: "GW-FM-OB", location: "Jenny's", quantity: 1 },
+    { name: "Gateway 915 Outdoor", sku: "GW-915-OA", location: "PWX IoT Hub", quantity: 1 },
+    { name: "Gateway 868 Outdoor", sku: "GW-868-OA", location: "PWX IoT Hub", quantity: 2 },
+    { name: "Gateway 915 Indoor", sku: "GW-915-IA", location: "PWX IoT Hub", quantity: 1 },
+    { name: "Gateway 868 Indoor", sku: "GW-868-IA", location: "PWX IoT Hub", quantity: 5 },
+    { name: "Femto Outdoor", sku: "GW-FM-OA", location: "PWX IoT Hub", quantity: 3 },
+    { name: "Gateway 915 Outdoor", sku: "GW-915-OB", location: "Jenny's", quantity: 2 },
+    { name: "Gateway 868 Outdoor", sku: "GW-868-OB", location: "Jenny's", quantity: 1 },
+    { name: "Gateway 915 Indoor", sku: "GW-915-IB", location: "Jenny's", quantity: 3 },
+    { name: "Gateway 868 Indoor", sku: "GW-868-IB", location: "Jenny's", quantity: 2 },
+    { name: "Femto Outdoor", sku: "GW-FM-OB", location: "Jenny's", quantity: 1 },
 ];
 
 export function loadGwCatalog(): GatewayItem[] {

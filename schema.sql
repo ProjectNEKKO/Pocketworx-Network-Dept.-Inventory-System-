@@ -78,4 +78,17 @@ CREATE INDEX IF NOT EXISTS idx_stock_requests_status ON stock_requests(status);
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_sku ON inventory_components(sku);
-CREATE INDEX IF NOT EXISTS idx_gateways_sku ON gateways(sku);
+
+-- Critical Stock Logs
+CREATE TABLE IF NOT EXISTS critical_stock_logs (
+    id SERIAL PRIMARY KEY,
+    item_sku VARCHAR(255) NOT NULL,
+    warehouse VARCHAR(255) NOT NULL,
+    old_value INTEGER NOT NULL,
+    new_value INTEGER NOT NULL,
+    changed_by VARCHAR(255) NOT NULL, -- email
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_critical_stock_logs_sku ON critical_stock_logs(item_sku);
+
