@@ -563,6 +563,19 @@ export async function markNotificationAsRead(id: number): Promise<void> {
     }
 }
 
+export async function markAllNotificationsAsRead(userId?: number): Promise<void> {
+    try {
+        const query = userId 
+            ? "UPDATE notifications SET is_read = TRUE WHERE user_id = $1 OR user_id IS NULL"
+            : "UPDATE notifications SET is_read = TRUE WHERE user_id IS NULL";
+        const params = userId ? [userId] : [];
+        await pool.query(query, params);
+    } catch (error) {
+        console.error("Failed marking all notifications as read:", error);
+        throw new Error("Internal Database Error");
+    }
+}
+
 // --- Activity Logs ---
 
 export async function logActivity(action: string, detail: string, emailOrName: string, itemSku: string | null = null): Promise<void> {
