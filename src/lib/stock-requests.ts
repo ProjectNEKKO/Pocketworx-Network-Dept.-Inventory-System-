@@ -92,3 +92,14 @@ export async function markNotificationRead(id: number | string): Promise<boolean
     return false;
   }
 }
+
+export async function markAllNotificationsRead(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/notifications', {
+      method: 'PATCH',
+    });
+    return res.ok;
+  } catch (error) {
+    return false;
+  }
+}

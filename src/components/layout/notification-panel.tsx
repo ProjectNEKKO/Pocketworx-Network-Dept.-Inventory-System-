@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Bell, Check, X, Package, Radio, RefreshCw, AlertCircle, Info } from "lucide-react";
+import { Bell, Check, X, Package, Radio, RefreshCw, AlertCircle, Info, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,6 +16,7 @@ import {
     loadRequests,
     updateRequestStatus,
     loadNotifications,
+    markAllNotificationsRead,
 } from "@/lib/stock-requests";
 import { useClientRole } from "@/lib/use-client-role";
 import { toast } from "sonner";
@@ -139,6 +140,23 @@ export function NotificationPanel() {
         }
     }
 
+    async function handleMarkAllRead() {
+        setIsLoading(true);
+        try {
+            const success = await markAllNotificationsRead();
+            if (success) {
+                toast.success("All notifications marked as read");
+                await refresh();
+            } else {
+                toast.error("Failed to mark notifications as read");
+            }
+        } catch (error) {
+            toast.error("Error marking notifications as read");
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
     if (!ready) return null;
 
     return (
@@ -170,6 +188,16 @@ export function NotificationPanel() {
                                 <Badge className="bg-neutral-900 text-white text-[10px] px-2 py-0.5 rounded-full pointer-events-none">
                                     {unreadCount} new
                                 </Badge>
+                            )}
+                            {notifications.filter(n => !n.is_read).length > 0 && (
+                                <button
+                                    onClick={handleMarkAllRead}
+                                    disabled={isLoading}
+                                    className="p-1.5 rounded-lg hover:bg-neutral-200 text-neutral-500 transition-colors disabled:opacity-50"
+                                    title="Mark all as read"
+                                >
+                                    <CheckCheck className="h-4 w-4" />
+                                </button>
                             )}
                             <button
                                 onClick={refresh}
