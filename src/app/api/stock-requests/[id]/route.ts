@@ -16,7 +16,7 @@ export async function PATCH(
         const { id } = await params;
         const { status } = await request.json();
         const requestId = parseInt(id);
-        await updateStockRequestStatus(requestId, status);
+        await updateStockRequestStatus(requestId, status, session.email);
         
         // Broadcast the update so other admins' notification panels refresh instantly
         sseManager.broadcast("refresh", { id: requestId, status });

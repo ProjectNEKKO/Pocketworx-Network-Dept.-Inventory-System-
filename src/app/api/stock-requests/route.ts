@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth-server";
-import { createStockRequest, getStockRequests, createNotification } from "@/lib/db";
+import { createStockRequest, getStockRequests, createNotification, logActivity } from "@/lib/db";
 import { sseManager } from "@/lib/sse-clients";
 
 export async function GET() {
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     try {
         const { type, itemSku, itemName, requestedQty } = await request.json();
         const newRequest = await createStockRequest(type, itemSku, itemName, requestedQty, session.email);
+        await logActivity("Stock Requested", `${requestedQty}x ${itemName} requested`, session.email, itemSku);
         // Push an instant SSE event to all connected admin/co-admin browsers
         sseManager.broadcast("refresh", newRequest);
         return NextResponse.json(newRequest, { status: 201 });
