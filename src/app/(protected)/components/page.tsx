@@ -29,6 +29,17 @@ import { useClientRole } from "@/lib/use-client-role";
 import { AddComponentsDialog, ComponentItem } from "./add_components";
 import { addRequest } from "@/lib/stock-requests";
 import { exportComponentsToExcel } from "@/lib/excel-import";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 function getStatusInfo(stock: number, minStock: number) {
     if (stock <= 0) return { status: "Out of Stock", statusClasses: "border-red-200 bg-red-50 text-red-700", textClass: "text-red-700 font-bold" };
@@ -320,6 +331,9 @@ export default function ComponentsPage() {
     const [search, setSearch] = useState("");
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
     const [tagFilter, setTagFilter] = useState("All Types");
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [componentToDelete, setComponentToDelete] = useState<{sku: string, warehouse: string | undefined, name: string} | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchComponents = async () => {
         try {
@@ -393,16 +407,35 @@ export default function ComponentsPage() {
         setSelectedComp(null);
     };
 
-    const handleDelete = async (e: React.MouseEvent, sku: string, warehouse: string | undefined) => {
+    const handleDelete = (e: React.MouseEvent, sku: string, warehouse: string | undefined, name: string) => {
         e.stopPropagation();
-        if (!confirm("Are you sure you want to delete this component?")) return;
+        setComponentToDelete({ sku, warehouse, name });
+        setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!componentToDelete) return;
+        
+        setIsDeleting(true);
         try {
+            const { sku, warehouse } = componentToDelete;
             const res = await fetch(`/api/inventory/components?sku=${sku}&warehouse=${warehouse}`, {
                 method: "DELETE",
             });
-            if (res.ok) fetchComponents();
+            if (res.ok) {
+                toast.success("Component deleted successfully", {
+                    description: `${componentToDelete.name} has been removed.`
+                });
+                fetchComponents();
+                setIsDeleteDialogOpen(false);
+            } else {
+                toast.error("Failed to delete component");
+            }
         } catch (error) {
             console.error("Failed to delete component:", error);
+            toast.error("An error occurred while deleting");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -561,7 +594,7 @@ export default function ComponentsPage() {
                                         </Badge>
                                         {role === "admin" && (
                                             <button
-                                                onClick={(e) => handleDelete(e, comp.sku, comp.warehouse)}
+                                                onClick={(e) => handleDelete(e, comp.sku, comp.warehouse, comp.name)}
                                                 className="ml-1 p-1.5 rounded-lg text-neutral-300 hover:text-red-500 hover:bg-red-50 transition-all"
                                                 title="Delete component"
                                             >
@@ -587,6 +620,32 @@ export default function ComponentsPage() {
                 onUpdate={handleUpdate}
                 role={role}
             />
+
+            {/* Delete Confirmation Alert Dialog */}
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent className="sm:max-w-[420px]">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Component</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete <span className="font-semibold text-neutral-900">{componentToDelete?.name}</span>? 
+                            This action cannot be undone and will permanently remove the item from this warehouse.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={(e) => {
+                                e.preventDefault();
+                                confirmDelete();
+                            }}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            disabled={isDeleting}
+                        >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
