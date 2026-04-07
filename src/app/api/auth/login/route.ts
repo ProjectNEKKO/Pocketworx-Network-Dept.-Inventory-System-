@@ -100,8 +100,9 @@ export async function POST(req: NextRequest) {
         const cookieStore = await cookies();
         cookieStore.set("pwx_auth_token", token, {
             httpOnly: true,  // Critical configuration hiding value from XSS attack vectors
-            secure: process.env.NODE_ENV === "production", // Transport solely through TLS context layer
-            sameSite: "strict", // Deter CSRF mutations
+            // Allow non-secure cookies on HTTP-only deployments (like custom ports) while keeping it secure for true production HTTPS
+            secure: process.env.NODE_ENV === "production" && req.nextUrl.protocol === "https:", 
+            sameSite: "lax", // Deter CSRF mutations while allowing cross-port/subdomain navigation
             path: "/",
             maxAge: 24 * 60 * 60, // Lasts 24 hours
         });
