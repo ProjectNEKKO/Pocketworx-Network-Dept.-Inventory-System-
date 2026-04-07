@@ -26,8 +26,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useClientRole } from "@/lib/use-client-role";
-import { AddGatewaysDialog, GatewayItem } from "./add_gateways";
 import { addRequest } from "@/lib/stock-requests";
+import { AddGatewaysDialog, GatewayItem } from "./add_gateways";
 
 function GatewayDetailDialog({
     gw,

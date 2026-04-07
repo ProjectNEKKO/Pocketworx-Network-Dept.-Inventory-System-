@@ -7,10 +7,10 @@ export function downloadExcelTemplate() {
     const wb = XLSX.utils.book_new();
 
     // 2. Add "Components" sheet
-    const componentsHeaders = ["Name", "SKU", "Category", "Stock", "Critical Stock", "Warehouse"];
+    const componentsHeaders = ["Name", "SKU", "Category", "Stock", "Critical Stock", "Warehouse", "Item Source"];
     const wsComponents = XLSX.utils.aoa_to_sheet([
         componentsHeaders,
-        ["Example Component", "EX-COMP-01", "Hardware", 100, 20, "PWX IoT Hub"]
+        ["Example Component", "EX-COMP-01", "Hardware", 100, 20, "PWX IoT Hub", "Local"]
     ]);
     XLSX.utils.book_append_sheet(wb, wsComponents, "Components");
 
@@ -68,7 +68,7 @@ export async function processExcelImport(
         const wsComponents = wb.Sheets["Components"];
         if (wsComponents) {
             const rawComponents = XLSX.utils.sheet_to_json<any>(wsComponents);
-            
+
             let rowIndex = 2; // header is row 1 conceptually
             for (const row of rawComponents) {
                 const name = row["Name"] || row["name"];
@@ -77,9 +77,22 @@ export async function processExcelImport(
                 let stock = Number(row["Stock"] || row["Current Stock"] || row["stock"]);
                 let min = Number(row["Min Stock"] || row["Critical Stock"] || row["min"]);
                 const warehouse = String(row["Warehouse"] || row["warehouse"] || "PWX IoT Hub").trim();
+                const tag = String(row["Item Source"] || row["item source"] || "Local").trim();
 
                 if (!name || !sku) {
                     importErrors.push(`Components Row ${rowIndex}: Missing required 'Name' or 'SKU'.`);
+                    rowIndex++;
+                    continue;
+                }
+
+                if (!category) {
+                    importErrors.push(`Components Row ${rowIndex} (${name}): Missing required 'Category'.`);
+                    rowIndex++;
+                    continue;
+                }
+
+                if (row["Stock"] === undefined && row["Current Stock"] === undefined && row["stock"] === undefined) {
+                    importErrors.push(`Components Row ${rowIndex} (${name}): Missing required 'Stock' quantity.`);
                     rowIndex++;
                     continue;
                 }
@@ -88,16 +101,16 @@ export async function processExcelImport(
                 if (isNaN(min) || min < 0) min = 0;
 
                 const lookupKey = `${sku.toLowerCase()}-${warehouse.toLowerCase()}`;
-                
+
                 if (compMap.has(lookupKey)) {
                     // Update: Record the quantity to ADD (delta)
                     const existing = compMap.get(lookupKey)!;
                     // We record the incoming 'stock' as the adjustment amount
-                    const updateCopy = { ...existing, stock: stock }; 
+                    const updateCopy = { ...existing, stock: stock };
                     updatedComponents.push(updateCopy);
-                    
+
                     // Update local map for internal preview consistency if needed
-                    existing.stock += stock; 
+                    existing.stock += stock;
                     if (min > existing.min_stock) existing.min_stock = min;
                     compMap.set(lookupKey, existing);
                 } else {
@@ -109,6 +122,7 @@ export async function processExcelImport(
                         stock: stock,
                         min_stock: min,
                         warehouse: warehouse,
+                        tag: tag,
                     };
                     addedComponents.push(newItem);
                     compMap.set(lookupKey, newItem);
@@ -135,6 +149,12 @@ export async function processExcelImport(
                     continue;
                 }
 
+                if (row["Quantity"] === undefined && row["quantity"] === undefined && row["Qty"] === undefined) {
+                    importErrors.push(`Gateways Row ${rowIndex} (${name}): Missing required 'Quantity'.`);
+                    rowIndex++;
+                    continue;
+                }
+
                 if (isNaN(quantity) || quantity < 0) quantity = 0;
 
                 const lookupKey = `${sku.toLowerCase()}-${location.toLowerCase()}`;
@@ -143,7 +163,7 @@ export async function processExcelImport(
                     const existing = gwMap.get(lookupKey)!;
                     const updateCopy = { ...existing, quantity: quantity }; // record the delta
                     updatedGateways.push(updateCopy);
-                    
+
                     existing.quantity += quantity;
                     gwMap.set(lookupKey, existing);
                 } else {
@@ -195,20 +215,21 @@ export async function processExcelImport(
 
 export function exportComponentsToExcel(components: ComponentItem[]) {
     const wb = XLSX.utils.book_new();
-    const headers = ["Name", "SKU", "Category", "Stock", "Critical Stock", "Warehouse"];
-    
+    const headers = ["Name", "SKU", "Category", "Stock", "Critical Stock", "Warehouse", "Item Source"];
+
     const rows = components.map(c => [
         c.name,
         c.sku,
         c.category,
         c.stock,
         c.min_stock,
-        c.warehouse || "PWX IoT Hub"
+        c.warehouse || "PWX IoT Hub",
+        c.tag || "Local"
     ]);
 
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     XLSX.utils.book_append_sheet(wb, ws, "Components");
-    
+
     // Trigger download
     XLSX.writeFile(wb, "Pocketworx_Components_Export.xlsx");
 }

@@ -1,0 +1,57 @@
+[
+  {
+    "column_name": "id",
+    "is_nullable": "NO",
+    "data_type": "integer"
+  },
+  {
+    "column_name": "sku",
+    "is_nullable": "NO",
+    "data_type": "character varying"
+  },
+  {
+    "column_name": "name",
+    "is_nullable": "NO",
+    "data_type": "character varying"
+  },
+  {
+    "column_name": "stock",
+    "is_nullable": "NO",
+    "data_type": "integer"
+  },
+  {
+    "column_name": "min_stock",
+    "is_nullable": "NO",
+    "data_type": "integer"
+  },
+  {
+    "column_name": "category",
+    "is_nullable": "YES",
+    "data_type": "character varying"
+  },
+  {
+    "column_name": "warehouse",
+    "is_nullable": "NO",
+    "data_type": "character varying"
+  },
+  {
+    "column_name": "image_url",
+    "is_nullable": "YES",
+    "data_type": "text"
+  },
+  {
+    "column_name": "created_at",
+    "is_nullable": "YES",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "column_name": "updated_at",
+    "is_nullable": "YES",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "column_name": "tag",
+    "is_nullable": "YES",
+    "data_type": "character varying"
+  }
+]

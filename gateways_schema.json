@@ -1,0 +1,34 @@
+[
+  {
+    "column_name": "id",
+    "data_type": "integer"
+  },
+  {
+    "column_name": "name",
+    "data_type": "character varying"
+  },
+  {
+    "column_name": "sku",
+    "data_type": "character varying"
+  },
+  {
+    "column_name": "location",
+    "data_type": "character varying"
+  },
+  {
+    "column_name": "quantity",
+    "data_type": "integer"
+  },
+  {
+    "column_name": "image_url",
+    "data_type": "text"
+  },
+  {
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone"
+  },
+  {
+    "column_name": "type",
+    "data_type": "character varying"
+  }
+]

@@ -207,7 +207,7 @@ export async function createUser(
 
 export async function getInventoryComponents(): Promise<ComponentItem[]> {
     try {
-        const { rows } = await pool.query("SELECT * FROM inventory_components ORDER BY name ASC");
+        const { rows } = await pool.query("SELECT *, image_url AS image FROM inventory_components ORDER BY name ASC");
         return rows;
     } catch (error) {
         console.error("Failed fetching components:", error);
@@ -218,7 +218,7 @@ export async function getInventoryComponents(): Promise<ComponentItem[]> {
 export async function upsertComponent(item: Partial<ComponentItem>): Promise<ComponentItem> {
     try {
         const queryText = `
-            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, tag, image)
+            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, tag, image_url)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (sku, warehouse) 
             DO UPDATE SET 
@@ -227,9 +227,9 @@ export async function upsertComponent(item: Partial<ComponentItem>): Promise<Com
                 min_stock = EXCLUDED.min_stock,
                 category = EXCLUDED.category,
                 tag = EXCLUDED.tag,
-                image = COALESCE(EXCLUDED.image, inventory_components.image),
+                image_url = COALESCE(EXCLUDED.image_url, inventory_components.image_url),
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING *;
+            RETURNING *, image_url AS image;
         `;
         const { rows } = await pool.query(queryText, [
             item.sku?.toUpperCase().trim(),
@@ -303,7 +303,7 @@ export async function updateComponent(sku: string, warehouse: string, updates: P
         if (minStockToUpdate !== undefined) { fields.push(`min_stock = $${idx++}`); values.push(minStockToUpdate); }
         if (updates.category !== undefined) { fields.push(`category = $${idx++}`); values.push(updates.category); }
         if (updates.tag !== undefined) { fields.push(`tag = $${idx++}`); values.push(updates.tag); }
-        if (updates.image !== undefined) { fields.push(`image = $${idx++}`); values.push(updates.image); }
+        if (updates.image !== undefined) { fields.push(`image_url = $${idx++}`); values.push(updates.image); }
 
         if (fields.length === 0) throw new Error("No fields provided for update");
 
@@ -316,7 +316,7 @@ export async function updateComponent(sku: string, warehouse: string, updates: P
             UPDATE inventory_components 
             SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE sku = $${skuIdx} AND warehouse = $${whIdx}
-            RETURNING *;
+            RETURNING *, image_url AS image;
         `;
         const result = await pool.query(queryText, values);
         if (result.rows.length === 0) throw new Error("Component not found");
@@ -370,7 +370,7 @@ export async function deleteComponent(sku: string, warehouse: string): Promise<v
 
 export async function getGateways(): Promise<GatewayItem[]> {
     try {
-        const { rows } = await pool.query("SELECT * FROM gateways ORDER BY name ASC");
+        const { rows } = await pool.query("SELECT *, image_url AS image FROM gateways ORDER BY name ASC");
         return rows;
     } catch (error) {
         console.error("Failed fetching gateways:", error);
@@ -381,16 +381,16 @@ export async function getGateways(): Promise<GatewayItem[]> {
 export async function upsertGateway(gw: Partial<GatewayItem>): Promise<GatewayItem> {
     try {
         const queryText = `
-            INSERT INTO gateways (sku, name, location, quantity, image)
+            INSERT INTO gateways (sku, name, location, quantity, image_url)
             VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (sku) 
             DO UPDATE SET 
                 name = EXCLUDED.name,
                 location = EXCLUDED.location,
                 quantity = EXCLUDED.quantity,
-                image = COALESCE(EXCLUDED.image, gateways.image),
+                image_url = COALESCE(EXCLUDED.image_url, gateways.image_url),
                 updated_at = CURRENT_TIMESTAMP
-            RETURNING *;
+            RETURNING *, image_url AS image;
         `;
         const { rows } = await pool.query(queryText, [
             gw.sku?.toUpperCase().trim(),
@@ -412,6 +412,28 @@ export async function deleteGateway(sku: string): Promise<void> {
     } catch (error) {
         console.error("Failed deleting gateway:", error);
         throw new Error("Internal Database Error");
+    }
+}
+
+/**
+ * Atomically adjusts gateway quantity by a delta (positive or negative).
+ * Prevents race conditions.
+ */
+export async function adjustGatewayQuantity(sku: string, delta: number): Promise<GatewayItem> {
+    try {
+        const queryText = `
+            UPDATE gateways 
+            SET quantity = GREATEST(0, quantity + $1),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE sku = $2
+            RETURNING *;
+        `;
+        const { rows } = await pool.query(queryText, [delta, sku.toUpperCase().trim()]);
+        if (rows.length === 0) throw new Error("Gateway not found");
+        return rows[0];
+    } catch (error) {
+        console.error("Failed adjusting gateway quantity:", error);
+        throw error;
     }
 }
 

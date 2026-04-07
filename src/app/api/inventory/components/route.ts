@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        
+
         // Check for min/min_stock restriction
         const hasMinStockUpdate = body.min !== undefined || body.min_stock !== undefined;
         if (hasMinStockUpdate && session.role !== 'admin') {
@@ -44,7 +44,7 @@ export async function PATCH(request: Request) {
     try {
         const body = await request.json();
         const { sku, warehouse, ...updates } = body;
-        
+
         if (!sku) return NextResponse.json({ error: "Missing SKU" }, { status: 400 });
 
         // Check for min/min_stock restriction
@@ -54,10 +54,10 @@ export async function PATCH(request: Request) {
         }
 
         const updatedItem = await updateComponent(sku, warehouse, updates, session.email);
-        
+
         let actionName = "Component Updated";
         let actionDetail = `${updatedItem.name} modified`;
-        
+
         if (updates.stock !== undefined) {
             actionName = "Stock Updated";
             actionDetail = `${updatedItem.name} stock set to ${updatedItem.stock} pcs`;
@@ -66,7 +66,7 @@ export async function PATCH(request: Request) {
             actionDetail = `Minimum set to ${updatedItem.min_stock} for ${updatedItem.name}`;
         }
         await logActivity(actionName, actionDetail, session.email, updatedItem.sku);
-        
+
         return NextResponse.json(updatedItem);
     } catch (error: any) {
         console.error("Failed to update component API:", error.message);
