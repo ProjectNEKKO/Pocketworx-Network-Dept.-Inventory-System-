@@ -1,22 +1,48 @@
 import { NextResponse } from "next/server";
-import { updateUserRole, deleteUserByEmail } from "@/lib/db";
+import { updateUserProfile, deleteUserByEmail } from "@/lib/db";
+import { getSession } from "@/lib/auth-server";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ email: string }> }) {
     try {
         const { email } = await params;
         const decodedEmail = decodeURIComponent(email);
         const body = await request.json();
-        const { role } = body;
+        const { role, name } = body;
 
-        if (!role) {
+        const session = await getSession();
+        if (!session) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const updates: any = {};
+
+        // Validation for Name Update
+        if (name !== undefined) {
+            // Only admins or the user themselves can update the name
+            if (session.email !== decodedEmail && session.role !== "admin") {
+                return NextResponse.json({ error: "Unauthorized to update this profile" }, { status: 403 });
+            }
+            updates.name = name;
+        }
+
+        // Validation for Role Update
+        if (role !== undefined) {
+            // Strictly check admin role checking
+            if (session.role !== "admin") {
+                return NextResponse.json({ error: "Only admins can update roles" }, { status: 403 });
+            }
+            updates.role = role.toLowerCase(); // Ensure formatting mapping like 'admin', 'co-admin', 'user'
+        }
+
+        if (Object.keys(updates).length === 0) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        await updateUserRole(decodedEmail, role);
-        return NextResponse.json({ message: "Role updated successfully" });
+        await updateUserProfile(decodedEmail, updates);
+        return NextResponse.json({ message: "Profile updated successfully" });
     } catch (error) {
         console.error("PATCH /api/users/[email] error:", error);
-        return NextResponse.json({ error: "Failed to update role" }, { status: 500 });
+        return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
     }
 }
 

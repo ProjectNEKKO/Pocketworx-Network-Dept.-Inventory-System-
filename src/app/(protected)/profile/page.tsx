@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/select";
 import { useClientRole } from "@/lib/use-client-role";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
+
 
 
 export default function ProfilePage() {
@@ -87,9 +89,41 @@ export default function ProfilePage() {
         .slice(0, 2)
         .toUpperCase();
 
-    const handleSave = () => {
-        setProfile({ ...tempProfile });
-        setIsEditing(false);
+    const handleSave = async () => {
+        setIsLoading(true);
+        try {
+            const roleToUpdate = tempProfile.role !== profile.role ? tempProfile.role : undefined;
+            const nameToUpdate = tempProfile.name !== profile.name ? tempProfile.name : undefined;
+
+            if (!roleToUpdate && !nameToUpdate) {
+                setIsEditing(false);
+                setIsLoading(false);
+                return;
+            }
+
+            const res = await fetch(`/api/users/${encodeURIComponent(profile.email)}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: nameToUpdate,
+                    role: roleToUpdate,
+                }),
+            });
+
+            if (res.ok) {
+                setProfile({ ...tempProfile });
+                toast.success("Profile updated successfully");
+            } else {
+                const data = await res.json();
+                toast.error(data.error || "Failed to update profile");
+            }
+        } catch (error) {
+            console.error("Failed to update profile", error);
+            toast.error("Failed to update profile");
+        } finally {
+            setIsEditing(false);
+            setIsLoading(false);
+        }
     };
 
     const handleCancel = () => {

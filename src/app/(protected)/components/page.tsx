@@ -48,12 +48,13 @@ function ComponentDetailDialog({
     comp: ComponentItem | null;
     open: boolean;
     onClose: () => void;
-    onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number) => void;
+    onUpdate: (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string) => void;
     role: string;
 }) {
     const [inputValue, setInputValue] = useState<string>("");
     const [nameValue, setNameValue] = useState<string>("");
     const [minStockValue, setMinStockValue] = useState<string>("");
+    const [tagValue, setTagValue] = useState<string>("Local");
     const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
     // User: withdrawal request quantity
     const [reqQty, setReqQty] = useState<string>("1");
@@ -69,6 +70,7 @@ function ComponentDetailDialog({
             setInputValue(comp.stock.toString());
             setNameValue(comp.name);
             setMinStockValue((comp.min_stock ?? 0).toString());
+            setTagValue(comp.tag || "Local");
             setImageUrl(comp.image);
             setReqQty("1");
             setSubmitted(false);
@@ -97,8 +99,8 @@ function ComponentDetailDialog({
         const safeMin = parseInt(minStockValue, 10);
         const finalMin = isNaN(safeMin) ? (comp.min_stock || 0) : safeMin;
         
-        console.log(`[DEBUG] Saving: Stock=${safeQty}, Min=${finalMin} for SKU: ${comp.sku}`);
-        onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue, finalMin);
+        console.log(`[DEBUG] Saving: Stock=${safeQty}, Min=${finalMin}, Tag=${tagValue} for SKU: ${comp.sku}`);
+        onUpdate(comp.sku, comp.warehouse, safeQty, imageUrl, nameValue, finalMin, tagValue);
         onClose();
     }
 
@@ -172,6 +174,21 @@ function ComponentDetailDialog({
                             <Badge variant="secondary" className="text-[11px] px-2 py-0.5 bg-violet-50 text-violet-700 border-violet-100/50">
                                 {comp.category}
                             </Badge>
+                            {role === "admin" ? (
+                                <select 
+                                    value={tagValue}
+                                    onChange={(e) => setTagValue(e.target.value)}
+                                    className="text-[11px] px-2 py-0.5 rounded border border-neutral-200 bg-white text-neutral-700 shadow-sm focus:outline-none focus:border-violet-500 hover:border-neutral-300 transition-colors cursor-pointer appearance-none pr-6 relative"
+                                    style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: 'right 0.1rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.25em 1.25em' }}
+                                >
+                                    <option value="Local">Local</option>
+                                    <option value="Import">Import</option>
+                                </select>
+                            ) : (
+                                <Badge variant="secondary" className={`text-[11px] px-2 py-0.5 ${comp.tag === 'Import' ? 'bg-purple-50 text-purple-700 border-purple-100/50' : 'bg-blue-50 text-blue-700 border-blue-100/50'}`}>
+                                    {comp.tag || "Local"}
+                                </Badge>
+                            )}
                             <Badge variant="secondary" className={`text-[11px] px-2 py-0.5 ${statusClasses}`}>
                                 {status}
                             </Badge>
@@ -302,6 +319,7 @@ export default function ComponentsPage() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [warehouseFilter, setWarehouseFilter] = useState("All Warehouses");
+    const [tagFilter, setTagFilter] = useState("All Types");
 
     const fetchComponents = async () => {
         try {
@@ -347,13 +365,13 @@ export default function ComponentsPage() {
         setDialogOpen(true);
     };
 
-    const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number) => {
+    const handleUpdate = async (sku: string, warehouse: string | undefined, newStock: number, imageUrl?: string, newName?: string, minStock?: number, newTag?: string) => {
         try {
-            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}, New Min: ${minStock}`);
+            console.log(`[API_PATCH] Updating ${sku} - New Stock: ${newStock}, New Min: ${minStock}, Tag: ${newTag}`);
             const res = await fetch("/api/inventory/components", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName, min_stock: minStock }),
+                body: JSON.stringify({ sku, warehouse, stock: newStock, image: imageUrl, name: newName, min_stock: minStock, tag: newTag }),
             });
             const updated = await res.json();
             console.log(`[API_PATCH_RESPONSE] Status: ${res.status}`, updated);
@@ -402,7 +420,9 @@ export default function ComponentsPage() {
 
         const matchesWarehouse = warehouseFilter === "all" || warehouseFilter === "All Warehouses" || normalizedWarehouse === warehouseFilter;
         
-        if (matchesSearch && matchesWarehouse) {
+        const matchesTag = tagFilter === "All Types" || (c.tag || "Local") === tagFilter;
+        
+        if (matchesSearch && matchesWarehouse && matchesTag) {
             acc.push({ ...c, warehouse: normalizedWarehouse });
         }
         return acc;
@@ -459,6 +479,16 @@ export default function ComponentsPage() {
                         <SelectItem value="Jenny's" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Jenny&apos;s</SelectItem>
                     </SelectContent>
                 </Select>
+                <Select value={tagFilter} onValueChange={setTagFilter}>
+                    <SelectTrigger className="w-full sm:w-[150px] border-neutral-200 bg-white text-neutral-900">
+                        <SelectValue placeholder="All Types" />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4} className="bg-white border-neutral-200 text-neutral-900 z-50">
+                        <SelectItem value="All Types" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">All Types</SelectItem>
+                        <SelectItem value="Local" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Local</SelectItem>
+                        <SelectItem value="Import" className="text-neutral-900 cursor-pointer focus:bg-neutral-100">Import</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
 
             {/* Component List */}
@@ -505,6 +535,12 @@ export default function ComponentsPage() {
                                                 <span className={textClass}>{comp.stock} pcs</span>
                                             </p>
                                         </div>
+                                        <Badge
+                                            variant="secondary"
+                                            className={`text-xs border ${comp.tag === 'Import' ? 'border-purple-200 bg-purple-50 text-purple-700' : 'border-blue-200 bg-blue-50 text-blue-700'}`}
+                                        >
+                                            {comp.tag || "Local"}
+                                        </Badge>
                                         <Badge
                                             variant="secondary"
                                             className="text-xs border-neutral-200 bg-neutral-100 text-neutral-600"

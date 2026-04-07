@@ -48,6 +48,7 @@ export type ComponentItem = {
     min_stock: number;
     category: string;
     warehouse: string;
+    tag?: string;
     image?: string;
     created_at: Date;
     updated_at: Date;
@@ -119,6 +120,54 @@ export async function updateUserRole(email: string, role: 'admin' | 'co-admin' |
     }
 }
 
+export async function updateUserProfile(email: string, updates: { name?: string, role?: string }): Promise<void> {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const fields: string[] = [];
+        const values: any[] = [];
+        let idx = 1;
+
+        if (updates.name !== undefined) {
+            fields.push(`name = $${idx++}`);
+            values.push(updates.name);
+
+            // Retroactively update activity logs to ensure name is consistent everywhere
+            try {
+                await client.query(
+                    `UPDATE activity_logs SET user_name = $1 WHERE user_email = $2`,
+                    [updates.name, email.toLowerCase()]
+                );
+            } catch (err: any) {
+                // Table might not exist yet, suppress error
+                if (err.code !== '42P01') throw err;
+            }
+        }
+        if (updates.role !== undefined) {
+            fields.push(`role = $${idx++}`);
+            values.push(updates.role);
+        }
+
+        if (fields.length > 0) {
+            values.push(email.toLowerCase());
+            const queryText = `
+                UPDATE users
+                SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+                WHERE email = $${idx};
+            `;
+            await client.query(queryText, values);
+        }
+
+        await client.query('COMMIT');
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("Failed updating user profile:", error);
+        throw new Error("Internal Database Error");
+    } finally {
+        client.release();
+    }
+}
+
 export async function deleteUserByEmail(email: string): Promise<void> {
     try {
         const queryText = `
@@ -169,14 +218,15 @@ export async function getInventoryComponents(): Promise<ComponentItem[]> {
 export async function upsertComponent(item: Partial<ComponentItem>): Promise<ComponentItem> {
     try {
         const queryText = `
-            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, image)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            INSERT INTO inventory_components (sku, name, stock, min_stock, category, warehouse, tag, image)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ON CONFLICT (sku, warehouse) 
             DO UPDATE SET 
                 name = EXCLUDED.name,
                 stock = EXCLUDED.stock,
                 min_stock = EXCLUDED.min_stock,
                 category = EXCLUDED.category,
+                tag = EXCLUDED.tag,
                 image = COALESCE(EXCLUDED.image, inventory_components.image),
                 updated_at = CURRENT_TIMESTAMP
             RETURNING *;
@@ -188,6 +238,7 @@ export async function upsertComponent(item: Partial<ComponentItem>): Promise<Com
             item.min_stock || (item as any).min || 0,
             item.category,
             item.warehouse || "PWX IoT Hub",
+            item.tag || "Local",
             item.image
         ]);
         return rows[0];
@@ -251,6 +302,7 @@ export async function updateComponent(sku: string, warehouse: string, updates: P
         if (updates.stock !== undefined) { fields.push(`stock = $${idx++}`); values.push(updates.stock); }
         if (minStockToUpdate !== undefined) { fields.push(`min_stock = $${idx++}`); values.push(minStockToUpdate); }
         if (updates.category !== undefined) { fields.push(`category = $${idx++}`); values.push(updates.category); }
+        if (updates.tag !== undefined) { fields.push(`tag = $${idx++}`); values.push(updates.tag); }
         if (updates.image !== undefined) { fields.push(`image = $${idx++}`); values.push(updates.image); }
 
         if (fields.length === 0) throw new Error("No fields provided for update");
