@@ -55,6 +55,7 @@ export interface ComponentItem {
   category: string;
   image?: string;
   warehouse?: string;
+  tag?: string;
   history?: ComponentActivity[];
 }
 
@@ -65,6 +66,7 @@ const formSchema = z.object({
   min_stock: z.string().refine(v => !isNaN(Number(v)) && Number(v) >= 0, "Minimum stock must be a non-negative number"),
   category: z.string().min(1, "Category is required"),
   warehouse: z.string().min(1, "Warehouse is required"),
+  tag: z.string().min(1, "Origin tag is required"),
 });
 
 export function AddComponentsDialog({
@@ -90,6 +92,7 @@ export function AddComponentsDialog({
       min_stock: "",
       category: "",
       warehouse: "PWX IoT Hub",
+      tag: "Local",
     },
   });
 
@@ -124,6 +127,7 @@ export function AddComponentsDialog({
       min_stock: Number(values.min_stock),
       category: values.category,
       warehouse: values.warehouse,
+      tag: values.tag,
       image: imageUrl,
     });
     
@@ -312,6 +316,28 @@ export function AddComponentsDialog({
                 )}
               />
             </div>
+            
+            <FormField
+              control={form.control}
+              name="tag"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Origin</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="h-10 w-full bg-white text-black border-neutral-200 focus:ring-violet-500/20 focus:border-violet-500 text-left">
+                        <SelectValue placeholder="Select Origin" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent position="popper" sideOffset={4} className="bg-white text-black">
+                      <SelectItem value="Local">Local</SelectItem>
+                      <SelectItem value="Import">Import</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
               </div>
             </div>

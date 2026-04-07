@@ -38,6 +38,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import {
     AreaChart,
@@ -245,6 +252,8 @@ export default function DashboardPage() {
         itemHistory: Array<{ action: string; detail: string; time: string; user: string }>;
     } | null>(null);
     const [isCriticalAlertsOpen, setIsCriticalAlertsOpen] = useState(false);
+    const [criticalAlertsFilter, setCriticalAlertsFilter] = useState("All Types");
+    const [criticalWarehouseFilter, setCriticalWarehouseFilter] = useState("All Warehouses");
     const [importPreview, setImportPreview] = useState<ImportResult | null>(null);
     const [isImporting, setIsImporting] = useState(false);
     const [stats, setStats] = useState<DashboardSummary | null>(null);
@@ -263,12 +272,14 @@ export default function DashboardPage() {
             iconColor: "text-blue-500",
             bgColor: "bg-blue-100/80",
             href: "/gateways",
-            data: (stats?.gateways?.categories || []).map((cat, i) => ({
-                name: cat.name,
-                value: cat.count,
-                color: gatewayColors[i % gatewayColors.length],
-                breakdown: cat.items.map(g => ({ name: g.name, detail: g.location }))
-            })) || [{ name: "Gateways", value: 0, color: "#3b82f6", breakdown: [] }]
+            data: stats?.gateways?.categories && stats.gateways.categories.length > 0
+                ? stats.gateways.categories.map((cat, i) => ({
+                    name: cat.name,
+                    value: cat.count,
+                    color: gatewayColors[i % gatewayColors.length],
+                    breakdown: cat.items.map(g => ({ name: g.name, detail: g.location }))
+                })) 
+                : [{ name: "No Gateways", value: 1, color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Components",
@@ -277,12 +288,14 @@ export default function DashboardPage() {
             iconColor: "text-violet-500",
             bgColor: "bg-violet-100/80",
             href: "/components",
-            data: (stats?.components?.categories || []).slice(0, 5).map((cat, i) => ({
-                name: cat.name,
-                value: cat.count,
-                color: componentColors[i % componentColors.length],
-                breakdown: cat.items.slice(0, 20).map(c => ({ name: c.name, detail: c.sku, value: c.stock }))
-            })) || [{ name: "Components", value: 0, color: "#8b5cf6", breakdown: [] }]
+            data: stats?.components?.categories && stats.components.categories.length > 0
+                ? stats.components.categories.slice(0, 5).map((cat, i) => ({
+                    name: cat.name,
+                    value: cat.count,
+                    color: componentColors[i % componentColors.length],
+                    breakdown: cat.items.slice(0, 20).map(c => ({ name: c.name, detail: c.sku, value: c.stock }))
+                })) 
+                : [{ name: "No Components", value: 1, color: "#f1f5f9", breakdown: [] }]
         },
         {
             label: "Total BOMs",
@@ -302,16 +315,18 @@ export default function DashboardPage() {
             icon: AlertTriangle,
             iconColor: "text-red-500",
             bgColor: "bg-red-100/80",
-            data: (stats?.alerts?.categories || []).map((cat, i) => ({
-                name: cat.name,
-                value: cat.count,
-                color: alertColors[i % alertColors.length],
-                breakdown: cat.items.map(a => ({ 
-                    name: a.name, 
-                    detail: `${a.stock}/${a.min_stock} - ${a.warehouse}`,
-                    value: `${a.stock} left`
-                }))
-            })) || [{ name: "Critical", value: 0, color: "#ef4444", breakdown: [] }]
+            data: stats?.alerts?.categories && stats.alerts.categories.length > 0
+                ? stats.alerts.categories.map((cat, i) => ({
+                    name: cat.name,
+                    value: cat.count,
+                    color: alertColors[i % alertColors.length],
+                    breakdown: cat.items.map(a => ({ 
+                        name: a.name, 
+                        detail: `${a.stock}/${a.min_stock} - ${a.warehouse}`,
+                        value: `${a.stock} left`
+                    }))
+                })) 
+                : [{ name: "No Alerts", value: 1, color: "#f1f5f9", breakdown: [] }]
         },
     ];
 
@@ -805,23 +820,70 @@ export default function DashboardPage() {
             <Dialog open={isCriticalAlertsOpen} onOpenChange={setIsCriticalAlertsOpen}>
                 <DialogContent className="sm:max-w-[800px] text-black w-[90vw] overflow-hidden rounded-[24px] p-0 border border-neutral-200/60 shadow-2xl bg-white mx-auto">
                     <DialogHeader className="px-6 md:px-8 py-6 border-b border-neutral-100 bg-red-50/50">
-                        <DialogTitle className="text-xl md:text-2xl font-bold text-neutral-900 flex items-center gap-2.5">
-                            <AlertTriangle className="h-6 w-6 text-red-500" />
-                            Critical Alerts
-                        </DialogTitle>
-                        <p className="text-sm text-neutral-500 mt-1">
-                            Components with extremely low stock that require immediate attention.
-                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div>
+                                <DialogTitle className="text-xl md:text-2xl font-bold text-neutral-900 flex items-center gap-2.5">
+                                    <AlertTriangle className="h-6 w-6 text-red-500" />
+                                    Critical Alerts
+                                </DialogTitle>
+                                <p className="text-sm text-neutral-500 mt-1">
+                                    Components with extremely low stock that require immediate attention.
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto shrink-0">
+                                <Select value={criticalWarehouseFilter} onValueChange={setCriticalWarehouseFilter}>
+                                    <SelectTrigger className="w-full sm:w-[150px] border-red-200 bg-white text-neutral-900 shadow-sm focus:ring-red-500 focus:border-red-500">
+                                        <SelectValue placeholder="All Warehouses" />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} className="bg-white border-red-200 text-neutral-900 z-50">
+                                        <SelectItem value="All Warehouses" className="text-neutral-900 cursor-pointer focus:bg-red-50">All Warehouses</SelectItem>
+                                        <SelectItem value="PWX IoT Hub" className="text-neutral-900 cursor-pointer focus:bg-red-50">PWX IoT Hub</SelectItem>
+                                        <SelectItem value="Jenny's" className="text-neutral-900 cursor-pointer focus:bg-red-50">Jenny&apos;s</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Select value={criticalAlertsFilter} onValueChange={setCriticalAlertsFilter}>
+                                    <SelectTrigger className="w-full sm:w-[120px] border-red-200 bg-white text-neutral-900 shadow-sm focus:ring-red-500 focus:border-red-500">
+                                        <SelectValue placeholder="All Types" />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} className="bg-white border-red-200 text-neutral-900 z-50">
+                                        <SelectItem value="All Types" className="text-neutral-900 cursor-pointer focus:bg-red-50">All Types</SelectItem>
+                                        <SelectItem value="Local" className="text-neutral-900 cursor-pointer focus:bg-red-50">Local</SelectItem>
+                                        <SelectItem value="Import" className="text-neutral-900 cursor-pointer focus:bg-red-50">Import</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                     </DialogHeader>
 
                     <div className="px-3 md:px-5 py-4 max-h-[65vh] overflow-y-auto bg-white">
                         <div className="space-y-3">
-                            {(stats?.alerts?.categories || []).length > 0 ? (stats?.alerts?.categories || []).map((cat) => (
-                                <div key={cat.name} className="space-y-2">
-                                    <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest pl-1 mt-4 first:mt-0">{cat.name}</h4>
-                                    {(cat.items || []).map((comp) => (
+                            {(() => {
+                                const activeCategories = (stats?.alerts?.categories || [])
+                                    .map(cat => ({
+                                        ...cat,
+                                        items: (cat.items || []).filter(comp => {
+                                            const matchesTag = criticalAlertsFilter === "All Types" || (comp.tag || "Local") === criticalAlertsFilter;
+                                            
+                                            let normalizedWarehouse = comp.warehouse;
+                                            if (comp.warehouse === "PWX IoT Hub" || comp.warehouse === "Main Warehouse" || comp.warehouse === "Main Warehouse - PWX IoT Hub") {
+                                                normalizedWarehouse = "PWX IoT Hub";
+                                            } else if (comp.warehouse === "Jenny's" || comp.warehouse === "Secondary Warehouse" || comp.warehouse === "Jenny's Warehouse" || comp.warehouse === "Secondary Warehouse - Jenny's Warehouse") {
+                                                normalizedWarehouse = "Jenny's";
+                                            }
+                                            const matchesWarehouse = criticalWarehouseFilter === "All Warehouses" || normalizedWarehouse === criticalWarehouseFilter;
+                                            
+                                            return matchesTag && matchesWarehouse;
+                                        })
+                                    }))
+                                    .filter(cat => cat.items.length > 0);
+                                
+                                if (activeCategories.length > 0) {
+                                    return activeCategories.map((cat) => (
+                                        <div key={cat.name} className="space-y-2">
+                                            <h4 className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest pl-1 mt-4 first:mt-0">{cat.name}</h4>
+                                            {cat.items.map((comp) => (
                                         <div
-                                            key={comp.sku}
+                                            key={`${comp.sku}-${comp.warehouse}`}
                                             className="flex items-center justify-between rounded-xl border border-red-100/50 bg-red-50/20 p-4 transition-all hover:bg-red-50/40 hover:border-red-200 hover:shadow-sm"
                                         >
                                             <div className="flex items-center gap-4">
@@ -832,6 +894,9 @@ export default function DashboardPage() {
                                                     <p className="text-sm font-semibold text-neutral-900">{comp.name}</p>
                                                     <div className="flex items-center gap-2 mt-0.5">
                                                         <span className="text-[10px] text-neutral-500 font-mono bg-neutral-100 px-1.5 rounded">{comp.sku}</span>
+                                                        <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 h-4 border ${comp.tag === 'Import' ? 'border-purple-200 bg-purple-50 text-purple-700' : 'border-blue-200 bg-blue-50 text-blue-700'}`}>
+                                                            {comp.tag || "Local"}
+                                                        </Badge>
                                                         <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-neutral-100 text-neutral-600 hover:bg-neutral-200">
                                                             {comp.category}
                                                         </Badge>
@@ -861,15 +926,19 @@ export default function DashboardPage() {
                                         </div>
                                     ))}
                                 </div>
-                            )) : (
-                                <div className="text-center py-20">
-                                    <div className="h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <CheckCircle className="h-8 w-8 text-emerald-500" />
-                                    </div>
-                                    <h3 className="text-lg font-bold text-neutral-900">All Clear!</h3>
-                                    <p className="text-neutral-500 text-sm mt-1">No critical stock alerts at the moment.</p>
-                                </div>
-                            )}
+                                    ));
+                                } else {
+                                    return (
+                                        <div className="text-center py-20">
+                                            <div className="h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <CheckCircle className="h-8 w-8 text-emerald-500" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-neutral-900">All Clear!</h3>
+                                            <p className="text-neutral-500 text-sm mt-1">No critical stock alerts {criticalAlertsFilter !== "All Types" || criticalWarehouseFilter !== "All Warehouses" ? 'matching these filters' : 'at the moment'}.</p>
+                                        </div>
+                                    );
+                                }
+                            })()}
                         </div>
                     </div>
                 </DialogContent>
